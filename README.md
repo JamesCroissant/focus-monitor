@@ -13,6 +13,16 @@ C++ / OpenCV を用いて、カメラ映像から人の顔を検出し、パソ�
 - C++17 対応コンパイラ
 - OpenCV (`libopencv-dev` など)
 
+Ubuntu/Debian の場合:
+
+```sh
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends libopencv-dev
+```
+
+(`--no-install-recommends` を付けない場合、環境によっては mesa / gphoto2 / libinput
+などの不要な推奨パッケージが原因でインストールに失敗することがあります。)
+
 ## ビルド方法
 
 ```sh
