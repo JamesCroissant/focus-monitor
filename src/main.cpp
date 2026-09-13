@@ -3,8 +3,12 @@
 #include <opencv2/objdetect.hpp>
 
 #include <array>
+#include <chrono>
 #include <iostream>
+#include <sstream>
 #include <string>
+
+#include "focus_tracker.h"
 
 namespace {
 
@@ -49,6 +53,8 @@ int main(int argc, char** argv) {
   const std::string window_name = "Focus Monitor";
   cv::namedWindow(window_name, cv::WINDOW_AUTOSIZE);
 
+  FocusTracker tracker(FocusTracker::Clock::now());
+
   cv::Mat frame;
   cv::Mat gray;
   std::vector<cv::Rect> faces;
@@ -69,11 +75,22 @@ int main(int argc, char** argv) {
       cv::rectangle(frame, face, cv::Scalar(0, 255, 0), 2);
     }
 
-    const bool face_found = !faces.empty();
-    const std::string status =
-        face_found ? "Face detected (" + std::to_string(faces.size()) + ")" : "No face detected";
-    cv::putText(frame, status, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8,
-                face_found ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 0, 255), 2);
+    const auto now = FocusTracker::Clock::now();
+    if (tracker.Update(!faces.empty(), now)) {
+      std::cout << "[focus-monitor] "
+                << (tracker.focused() ? "Focus regained" : "Focus lost") << std::endl;
+    }
+
+    std::ostringstream status_line;
+    status_line << (tracker.focused() ? "Focused" : "Not focused") << " ("
+                << static_cast<int>(tracker.SecondsInCurrentState(now)) << "s)";
+    cv::putText(frame, status_line.str(), cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8,
+                tracker.focused() ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 0, 255), 2);
+
+    std::ostringstream ratio_line;
+    ratio_line << "Focus rate: " << static_cast<int>(tracker.FocusRatio() * 100) << "%";
+    cv::putText(frame, ratio_line.str(), cv::Point(10, 60), cv::FONT_HERSHEY_SIMPLEX, 0.7,
+                cv::Scalar(255, 255, 255), 2);
 
     cv::imshow(window_name, frame);
 
