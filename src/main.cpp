@@ -8,7 +8,9 @@
 #include <sstream>
 #include <string>
 
+#include "alert_scheduler.h"
 #include "focus_tracker.h"
+#include "notifier.h"
 
 namespace {
 
@@ -18,6 +20,11 @@ constexpr std::array<const char*, 4> kCascadeSearchPaths = {
     "/usr/local/share/opencv4/haarcascades/haarcascade_frontalface_default.xml",
     "/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml",
 };
+
+// How long to stay not-focused before the first alert, and how often to
+// repeat it while the not-focused streak continues.
+constexpr std::chrono::seconds kUnfocusedAlertDelay{10};
+constexpr std::chrono::seconds kUnfocusedAlertRepeatInterval{30};
 
 std::string ResolveCascadePath(int argc, char** argv) {
   if (argc > 1) {
@@ -54,6 +61,8 @@ int main(int argc, char** argv) {
   cv::namedWindow(window_name, cv::WINDOW_AUTOSIZE);
 
   FocusTracker tracker(FocusTracker::Clock::now());
+  AlertScheduler alert_scheduler(kUnfocusedAlertDelay, kUnfocusedAlertRepeatInterval);
+  Notifier notifier;
 
   cv::Mat frame;
   cv::Mat gray;
@@ -79,6 +88,13 @@ int main(int argc, char** argv) {
     if (tracker.Update(!faces.empty(), now)) {
       std::cout << "[focus-monitor] "
                 << (tracker.focused() ? "Focus regained" : "Focus lost") << std::endl;
+    }
+
+    if (alert_scheduler.ShouldAlert(tracker.focused(), tracker.StateChangedAt(), now)) {
+      const int unfocused_seconds = static_cast<int>(tracker.SecondsInCurrentState(now));
+      notifier.Notify("Focus Monitor", "No face detected for " +
+                                            std::to_string(unfocused_seconds) +
+                                            "s. Are you still there?");
     }
 
     std::ostringstream status_line;
