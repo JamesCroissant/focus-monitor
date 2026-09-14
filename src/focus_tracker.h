@@ -50,6 +50,9 @@ class FocusTracker {
 
   bool focused() const { return focused_; }
 
+  // Timestamp at which the current focused/not-focused state began.
+  Clock::time_point StateChangedAt() const { return state_changed_at_; }
+
   double SecondsInCurrentState(Clock::time_point now) const {
     return std::chrono::duration<double>(now - state_changed_at_).count();
   }
