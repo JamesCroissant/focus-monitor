@@ -18,6 +18,8 @@ C++ / OpenCV を用いて、カメラ映像から人の顔を検出し、パソ�
   `libnotify-bin` など）ではデスクトップ通知も送る（`src/notifier.h`）。`notify-send` が
   無い環境（macOS、Windows、ヘッドレス環境など）ではログ＋ベル音のみに自動的にフォール
   バックする。
+- `FocusTracker`/`AlertScheduler` はカメラ・OpenCV に依存しないロジックのみなので、
+  単体テストを用意している(`tests/`、詳細は下記「テスト」節)。
 
 ## 必要環境
 
@@ -58,3 +60,15 @@ cmake --build .
 ```
 
 `q` キーまたは ESC キーで終了します。
+
+## テスト
+
+`FocusTracker`(グレースピリオド・集中率の計算)と `AlertScheduler`(アラートの
+発火タイミング)は、カメラや OpenCV に依存しない純粋なロジッククラスなので、
+外部テストフレームワークを追加せず、`tests/test_framework.h` の小さな自作ハーネスと
+CTest だけでテストしている。
+
+```sh
+cd build
+ctest --output-on-failure
+```
