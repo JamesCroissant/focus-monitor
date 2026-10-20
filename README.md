@@ -20,6 +20,9 @@ C++ / OpenCV を用いて、カメラ映像から人の顔を検出し、パソ�
   バックする。
 - `FocusTracker`/`AlertScheduler` はカメラ・OpenCV に依存しないロジックのみなので、
   単体テストを用意している(`tests/`、詳細は下記「テスト」節)。
+- push / pull request のたびに GitHub Actions でビルド＋テストを自動実行する
+  (`.github/workflows/build-and-test.yml`)。カメラが無い CI 環境でも `focus_monitor`
+  本体のビルド確認と、カメラに依存しない単体テストの実行はできる。
 
 ## 必要環境
 
