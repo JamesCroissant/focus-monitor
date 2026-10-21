@@ -23,6 +23,9 @@ C++ / OpenCV を用いて、カメラ映像から人の顔を検出し、パソ�
 - push / pull request のたびに GitHub Actions でビルド＋テストを自動実行する
   (`.github/workflows/build-and-test.yml`)。カメラが無い CI 環境でも `focus_monitor`
   本体のビルド確認と、カメラに依存しない単体テストの実行はできる。
+- カメラ番号・グレースピリオド・アラートの delay / repeat interval はコマンドライン
+  オプションで変更できる(`src/config.h`、詳細は下記「実行方法」節)。パース処理は
+  OpenCV に依存しないので、こちらも単体テスト済み。
 
 ## 必要環境
 
@@ -64,12 +67,30 @@ cmake --build .
 
 `q` キーまたは ESC キーで終了します。
 
+以下のオプションで既定値を変更できる(カスケードパスの指定は従来通り第1引数):
+
+```sh
+./build/focus_monitor [cascade_path] \
+    [--camera N] \
+    [--grace-period SECONDS] \
+    [--alert-delay SECONDS] \
+    [--alert-interval SECONDS]
+```
+
+- `--camera N`: 使用するカメラのデバイス番号(既定 0)。
+- `--grace-period SECONDS`: 顔検出が途切れてから Not focused と判定するまでの
+  許容時間(既定 2 秒)。
+- `--alert-delay SECONDS`: Not focused になってから最初のアラートまでの時間
+  (既定 10 秒)。
+- `--alert-interval SECONDS`: 最初のアラート以降、Not focused が続く間の
+  繰り返し間隔(既定 30 秒)。
+
 ## テスト
 
-`FocusTracker`(グレースピリオド・集中率の計算)と `AlertScheduler`(アラートの
-発火タイミング)は、カメラや OpenCV に依存しない純粋なロジッククラスなので、
-外部テストフレームワークを追加せず、`tests/test_framework.h` の小さな自作ハーネスと
-CTest だけでテストしている。
+`FocusTracker`(グレースピリオド・集中率の計算)、`AlertScheduler`(アラートの
+発火タイミング)、`Config`(コマンドライン引数のパース)は、カメラや OpenCV に
+依存しない純粋なロジックなので、外部テストフレームワークを追加せず、
+`tests/test_framework.h` の小さな自作ハーネスと CTest だけでテストしている。
 
 ```sh
 cd build

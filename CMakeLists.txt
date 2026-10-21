@@ -25,3 +25,6 @@ add_test(NAME focus_tracker_test COMMAND focus_tracker_test)
 
 add_executable(alert_scheduler_test tests/test_alert_scheduler.cpp)
 add_test(NAME alert_scheduler_test COMMAND alert_scheduler_test)
+
+add_executable(config_test tests/test_config.cpp)
+add_test(NAME config_test COMMAND config_test)

@@ -7,8 +7,10 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "alert_scheduler.h"
+#include "config.h"
 #include "focus_tracker.h"
 #include "notifier.h"
 
@@ -21,14 +23,9 @@ constexpr std::array<const char*, 4> kCascadeSearchPaths = {
     "/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml",
 };
 
-// How long to stay not-focused before the first alert, and how often to
-// repeat it while the not-focused streak continues.
-constexpr std::chrono::seconds kUnfocusedAlertDelay{10};
-constexpr std::chrono::seconds kUnfocusedAlertRepeatInterval{30};
-
-std::string ResolveCascadePath(int argc, char** argv) {
-  if (argc > 1) {
-    return argv[1];
+std::string ResolveCascadePath(const std::string& explicit_path) {
+  if (!explicit_path.empty()) {
+    return explicit_path;
   }
   for (const char* path : kCascadeSearchPaths) {
     if (cv::utils::fs::exists(path)) {
@@ -38,10 +35,27 @@ std::string ResolveCascadePath(int argc, char** argv) {
   return kCascadeSearchPaths.front();
 }
 
+template <typename DurationT>
+DurationT SecondsToDuration(double seconds) {
+  return std::chrono::duration_cast<DurationT>(std::chrono::duration<double>(seconds));
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
-  const std::string cascade_path = ResolveCascadePath(argc, argv);
+  const std::vector<std::string> raw_args(argv + 1, argv + argc);
+  const ParseArgsResult parsed = ParseArgs(raw_args);
+  if (!parsed.ok) {
+    std::cerr << "Error: " << parsed.error << std::endl;
+    std::cerr << "Usage: " << argv[0]
+              << " [cascade_path] [--camera N] [--grace-period SECONDS]"
+                 " [--alert-delay SECONDS] [--alert-interval SECONDS]"
+              << std::endl;
+    return 1;
+  }
+  const Config& config = parsed.config;
+
+  const std::string cascade_path = ResolveCascadePath(config.cascade_path);
 
   cv::CascadeClassifier face_cascade;
   if (!face_cascade.load(cascade_path)) {
@@ -51,17 +65,21 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  cv::VideoCapture camera(0);
+  cv::VideoCapture camera(config.camera_index);
   if (!camera.isOpened()) {
-    std::cerr << "Failed to open camera 0" << std::endl;
+    std::cerr << "Failed to open camera " << config.camera_index << std::endl;
     return 1;
   }
 
   const std::string window_name = "Focus Monitor";
   cv::namedWindow(window_name, cv::WINDOW_AUTOSIZE);
 
-  FocusTracker tracker(FocusTracker::Clock::now());
-  AlertScheduler alert_scheduler(kUnfocusedAlertDelay, kUnfocusedAlertRepeatInterval);
+  FocusTracker tracker(FocusTracker::Clock::now(),
+                        SecondsToDuration<FocusTracker::Clock::duration>(
+                            config.grace_period_seconds));
+  AlertScheduler alert_scheduler(
+      SecondsToDuration<AlertScheduler::Clock::duration>(config.alert_delay_seconds),
+      SecondsToDuration<AlertScheduler::Clock::duration>(config.alert_interval_seconds));
   Notifier notifier;
 
   cv::Mat frame;
