@@ -11,6 +11,25 @@ void DefaultsWhenNoArgsGiven() {
   CHECK_NEAR(result.config.grace_period_seconds, 2.0, 1e-9);
   CHECK_NEAR(result.config.alert_delay_seconds, 10.0, 1e-9);
   CHECK_NEAR(result.config.alert_interval_seconds, 30.0, 1e-9);
+  CHECK(result.config.session_log_path == "focus_sessions.csv");
+}
+
+void SessionLogFlagOverridesTheDefaultPath() {
+  const auto result = ParseArgs({"--session-log", "/tmp/my_sessions.csv"});
+  CHECK(result.ok);
+  CHECK(result.config.session_log_path == "/tmp/my_sessions.csv");
+}
+
+void NoSessionLogFlagClearsThePath() {
+  const auto result = ParseArgs({"--no-session-log"});
+  CHECK(result.ok);
+  CHECK(result.config.session_log_path.empty());
+}
+
+void SessionLogFlagMissingItsValueIsRejected() {
+  const auto result = ParseArgs({"--session-log"});
+  CHECK(!result.ok);
+  CHECK(result.error.find("--session-log") != std::string::npos);
 }
 
 // The original "./focus_monitor [cascade_path]" positional-argument usage
@@ -82,6 +101,9 @@ void SecondPositionalArgumentIsRejected() {
 
 int main() {
   RUN_TEST(DefaultsWhenNoArgsGiven);
+  RUN_TEST(SessionLogFlagOverridesTheDefaultPath);
+  RUN_TEST(NoSessionLogFlagClearsThePath);
+  RUN_TEST(SessionLogFlagMissingItsValueIsRejected);
   RUN_TEST(BarePositionalArgumentIsTheCascadePath);
   RUN_TEST(CameraFlagOverridesTheDefault);
   RUN_TEST(TimingFlagsOverrideTheirDefaults);

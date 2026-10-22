@@ -18,6 +18,9 @@ struct Config {
   double grace_period_seconds = 2.0;
   double alert_delay_seconds = 10.0;
   double alert_interval_seconds = 30.0;
+  // Where each session's summary line is appended on exit (see
+  // session_logger.h). Empty means "don't log" (--no-session-log).
+  std::string session_log_path = "focus_sessions.csv";
 };
 
 struct ParseArgsResult {
@@ -30,11 +33,12 @@ struct ParseArgsResult {
 //
 // Accepts at most one bare positional argument (the cascade path, matching
 // the original "./focus_monitor [cascade_path]" usage) alongside
-// `--camera N`, `--grace-period SECONDS`, `--alert-delay SECONDS`, and
-// `--alert-interval SECONDS`. On any error (unknown flag, missing value,
-// a value that doesn't parse as a number, more than one positional
-// argument), returns `ok == false` with a human-readable `error` and an
-// unspecified `config`.
+// `--camera N`, `--grace-period SECONDS`, `--alert-delay SECONDS`,
+// `--alert-interval SECONDS`, `--session-log PATH`, and
+// `--no-session-log`. On any error (unknown flag, missing value, a value
+// that doesn't parse as a number, more than one positional argument),
+// returns `ok == false` with a human-readable `error` and an unspecified
+// `config`.
 inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
   ParseArgsResult result;
   bool have_positional = false;
@@ -83,6 +87,14 @@ inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
         result.error = arg + " expects a number, got '" + *value + "'";
         return result;
       }
+    } else if (arg == "--session-log") {
+      const auto value = next_value(i, arg);
+      if (!value) {
+        return result;
+      }
+      result.config.session_log_path = *value;
+    } else if (arg == "--no-session-log") {
+      result.config.session_log_path.clear();
     } else if (arg.rfind("--", 0) == 0) {
       result.ok = false;
       result.error = "unknown flag: " + arg;

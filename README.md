@@ -26,6 +26,11 @@ C++ / OpenCV を用いて、カメラ映像から人の顔を検出し、パソ�
 - カメラ番号・グレースピリオド・アラートの delay / repeat interval はコマンドライン
   オプションで変更できる(`src/config.h`、詳細は下記「実行方法」節)。パース処理は
   OpenCV に依存しないので、こちらも単体テスト済み。
+- セッション終了時（`q`/ESC での終了、カメラ切断による終了のいずれでも）、セッションの
+  長さと集中率を CSV 形式で `focus_sessions.csv`（既定）に1行追記する
+  (`src/session_logger.h`)。ログ出力先は `--session-log` で変更、`--no-session-log`
+  で無効化できる。ファイルが書き込めない場合も警告を出すだけでセッション自体は正常に
+  終了する。
 
 ## 必要環境
 
@@ -74,7 +79,8 @@ cmake --build .
     [--camera N] \
     [--grace-period SECONDS] \
     [--alert-delay SECONDS] \
-    [--alert-interval SECONDS]
+    [--alert-interval SECONDS] \
+    [--session-log PATH] [--no-session-log]
 ```
 
 - `--camera N`: 使用するカメラのデバイス番号(既定 0)。
@@ -84,11 +90,29 @@ cmake --build .
   (既定 10 秒)。
 - `--alert-interval SECONDS`: 最初のアラート以降、Not focused が続く間の
   繰り返し間隔(既定 30 秒)。
+- `--session-log PATH`: セッション終了時にサマリ(CSV)を追記するファイルのパス
+  (既定 `focus_sessions.csv`)。
+- `--no-session-log`: セッションログの記録を無効化する。
+
+### セッションログ (`focus_sessions.csv`)
+
+各セッション終了時に以下の形式で1行追記される(ファイルが存在しない場合はヘッダ行も
+書き込む):
+
+```
+ended_at,duration_seconds,focus_percent
+2026-10-22T01:23:45Z,312.4,87.6
+```
+
+- `ended_at`: セッション終了時刻(UTC、ISO 8601)。
+- `duration_seconds`: セッションの長さ(秒)。
+- `focus_percent`: セッション全体に占める Focused 時間の割合(0-100%)。
 
 ## テスト
 
 `FocusTracker`(グレースピリオド・集中率の計算)、`AlertScheduler`(アラートの
-発火タイミング)、`Config`(コマンドライン引数のパース)は、カメラや OpenCV に
+発火タイミング)、`Config`(コマンドライン引数のパース)、`session_logger`
+(セッションサマリの CSV フォーマットとファイル追記)は、カメラや OpenCV に
 依存しない純粋なロジックなので、外部テストフレームワークを追加せず、
 `tests/test_framework.h` の小さな自作ハーネスと CTest だけでテストしている。
 

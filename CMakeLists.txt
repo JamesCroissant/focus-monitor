@@ -28,3 +28,6 @@ add_test(NAME alert_scheduler_test COMMAND alert_scheduler_test)
 
 add_executable(config_test tests/test_config.cpp)
 add_test(NAME config_test COMMAND config_test)
+
+add_executable(session_logger_test tests/test_session_logger.cpp)
+add_test(NAME session_logger_test COMMAND session_logger_test)

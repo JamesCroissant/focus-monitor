@@ -13,6 +13,7 @@
 #include "config.h"
 #include "focus_tracker.h"
 #include "notifier.h"
+#include "session_logger.h"
 
 namespace {
 
@@ -50,6 +51,7 @@ int main(int argc, char** argv) {
     std::cerr << "Usage: " << argv[0]
               << " [cascade_path] [--camera N] [--grace-period SECONDS]"
                  " [--alert-delay SECONDS] [--alert-interval SECONDS]"
+                 " [--session-log PATH] [--no-session-log]"
               << std::endl;
     return 1;
   }
@@ -74,9 +76,9 @@ int main(int argc, char** argv) {
   const std::string window_name = "Focus Monitor";
   cv::namedWindow(window_name, cv::WINDOW_AUTOSIZE);
 
-  FocusTracker tracker(FocusTracker::Clock::now(),
-                        SecondsToDuration<FocusTracker::Clock::duration>(
-                            config.grace_period_seconds));
+  const auto session_start = FocusTracker::Clock::now();
+  FocusTracker tracker(session_start, SecondsToDuration<FocusTracker::Clock::duration>(
+                                           config.grace_period_seconds));
   AlertScheduler alert_scheduler(
       SecondsToDuration<AlertScheduler::Clock::duration>(config.alert_delay_seconds),
       SecondsToDuration<AlertScheduler::Clock::duration>(config.alert_interval_seconds));
@@ -137,5 +139,17 @@ int main(int argc, char** argv) {
 
   camera.release();
   cv::destroyAllWindows();
+
+  if (!config.session_log_path.empty()) {
+    const double duration_seconds =
+        std::chrono::duration<double>(FocusTracker::Clock::now() - session_start).count();
+    const SessionSummary summary{std::chrono::system_clock::now(), duration_seconds,
+                                  tracker.FocusRatio()};
+    if (!AppendSessionSummary(config.session_log_path, summary)) {
+      std::cerr << "[focus-monitor] Warning: failed to write session log to "
+                << config.session_log_path << std::endl;
+    }
+  }
+
   return 0;
 }
