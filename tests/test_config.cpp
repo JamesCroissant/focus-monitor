@@ -97,6 +97,37 @@ void SecondPositionalArgumentIsRejected() {
   CHECK(result.error.find("second.xml") != std::string::npos);
 }
 
+// std::stod parses "nan"/"inf"/"-inf" as a clean, no-exception success --
+// none of them mean anything as a duration, and letting one through would
+// eventually hit a std::chrono::duration_cast from a double that can't be
+// represented as an integer tick count (undefined behavior), not just
+// produce a weird but harmless number.
+void NonFiniteTimingValueIsRejected() {
+  CHECK(!ParseArgs({"--grace-period", "nan"}).ok);
+  CHECK(!ParseArgs({"--alert-delay", "inf"}).ok);
+  CHECK(!ParseArgs({"--alert-interval", "-inf"}).ok);
+}
+
+// A negative duration is just as meaningless as a non-finite one, even
+// though std::stod parses "-5" without complaint.
+void NegativeTimingValueIsRejected() {
+  CHECK(!ParseArgs({"--grace-period", "-1"}).ok);
+  CHECK(!ParseArgs({"--alert-delay", "-0.5"}).ok);
+  CHECK(!ParseArgs({"--alert-interval", "-30"}).ok);
+}
+
+// Zero is a legitimate choice for any of the three (e.g. alert
+// immediately, with no grace period at all) -- the boundary itself must
+// stay accepted, only values strictly below it should be rejected.
+void ZeroTimingValueIsAccepted() {
+  const auto result =
+      ParseArgs({"--grace-period", "0", "--alert-delay", "0", "--alert-interval", "0"});
+  CHECK(result.ok);
+  CHECK_NEAR(result.config.grace_period_seconds, 0.0, 1e-9);
+  CHECK_NEAR(result.config.alert_delay_seconds, 0.0, 1e-9);
+  CHECK_NEAR(result.config.alert_interval_seconds, 0.0, 1e-9);
+}
+
 }  // namespace
 
 int main() {
@@ -113,5 +144,8 @@ int main() {
   RUN_TEST(NonNumericCameraValueIsRejected);
   RUN_TEST(NumericValueWithTrailingGarbageIsRejected);
   RUN_TEST(SecondPositionalArgumentIsRejected);
+  RUN_TEST(NonFiniteTimingValueIsRejected);
+  RUN_TEST(NegativeTimingValueIsRejected);
+  RUN_TEST(ZeroTimingValueIsAccepted);
   return test_framework::FailureCount() == 0 ? 0 : 1;
 }

@@ -1,6 +1,7 @@
 #ifndef FOCUS_MONITOR_CONFIG_H_
 #define FOCUS_MONITOR_CONFIG_H_
 
+#include <cmath>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -36,9 +37,9 @@ struct ParseArgsResult {
 // `--camera N`, `--grace-period SECONDS`, `--alert-delay SECONDS`,
 // `--alert-interval SECONDS`, `--session-log PATH`, and
 // `--no-session-log`. On any error (unknown flag, missing value, a value
-// that doesn't parse as a number, more than one positional argument),
-// returns `ok == false` with a human-readable `error` and an unspecified
-// `config`.
+// that doesn't parse as a number, a timing value that isn't finite and
+// non-negative, more than one positional argument), returns `ok == false`
+// with a human-readable `error` and an unspecified `config`.
 inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
   ParseArgsResult result;
   bool have_positional = false;
@@ -73,6 +74,16 @@ inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
           const double seconds = std::stod(*value, &consumed);
           if (consumed != value->size()) {
             throw std::invalid_argument("trailing characters");
+          }
+          // std::stod happily parses "nan"/"inf"/"-inf" as a finite-
+          // looking success (no exception, full string consumed), and a
+          // negative duration is just as meaningless here -- all three
+          // would otherwise flow into a std::chrono::duration_cast from
+          // a double that can't be represented as a duration's integer
+          // tick count, which is undefined behavior, not just "a weird
+          // value that happens to work out."
+          if (!std::isfinite(seconds) || seconds < 0.0) {
+            throw std::invalid_argument("not a finite, non-negative number");
           }
           if (arg == "--grace-period") {
             result.config.grace_period_seconds = seconds;
