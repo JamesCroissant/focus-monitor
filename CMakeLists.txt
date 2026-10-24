@@ -31,3 +31,6 @@ add_test(NAME config_test COMMAND config_test)
 
 add_executable(session_logger_test tests/test_session_logger.cpp)
 add_test(NAME session_logger_test COMMAND session_logger_test)
+
+add_executable(notifier_test tests/test_notifier.cpp)
+add_test(NAME notifier_test COMMAND notifier_test)

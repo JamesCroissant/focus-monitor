@@ -5,6 +5,31 @@
 #include <iostream>
 #include <string>
 
+// Escapes `text` for safe embedding inside a double-quoted shell argument,
+// the way Notify() below embeds `title`/`message` into a notify-send
+// command line. A free function rather than a private Notifier method
+// specifically so this shell-safety-critical logic -- the one thing here
+// that's actually dangerous to get wrong -- can be unit-tested on its
+// own, the same way FocusTracker/AlertScheduler's logic already is,
+// without constructing a Notifier or sending a real notification.
+//
+// `"`, `\`, `$`, and `` ` `` are the characters a POSIX shell still gives
+// special meaning to *inside* double quotes (closing the string, command
+// substitution, variable expansion); every other character, including
+// shell metacharacters like `;`/`&`/`|`, is already literal once quoted
+// and needs no escaping here.
+inline std::string EscapeForShell(const std::string& text) {
+  std::string escaped;
+  escaped.reserve(text.size());
+  for (char c : text) {
+    if (c == '"' || c == '\\' || c == '$' || c == '`') {
+      escaped.push_back('\\');
+    }
+    escaped.push_back(c);
+  }
+  return escaped;
+}
+
 // Best-effort alert delivery: a terminal bell + log line always fire, and a
 // Linux desktop notification (via `notify-send`) is sent additionally when
 // that command is available on PATH. There is no hard dependency on any
@@ -30,18 +55,6 @@ class Notifier {
   static bool CommandExists(const std::string& name) {
     const std::string check = "command -v " + name + " >/dev/null 2>&1";
     return std::system(check.c_str()) == 0;
-  }
-
-  static std::string EscapeForShell(const std::string& text) {
-    std::string escaped;
-    escaped.reserve(text.size());
-    for (char c : text) {
-      if (c == '"' || c == '\\' || c == '$' || c == '`') {
-        escaped.push_back('\\');
-      }
-      escaped.push_back(c);
-    }
-    return escaped;
   }
 
   bool notify_send_available_;
