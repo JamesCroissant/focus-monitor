@@ -14,6 +14,7 @@
 #include "focus_tracker.h"
 #include "notifier.h"
 #include "session_logger.h"
+#include "shutdown_flag.h"
 
 namespace {
 
@@ -73,6 +74,8 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  InstallShutdownSignalHandlers();
+
   const std::string window_name = "Focus Monitor";
   cv::namedWindow(window_name, cv::WINDOW_AUTOSIZE);
 
@@ -87,7 +90,7 @@ int main(int argc, char** argv) {
   cv::Mat frame;
   cv::Mat gray;
   std::vector<cv::Rect> faces;
-  while (true) {
+  while (!ShutdownFlag::Instance().Requested()) {
     camera >> frame;
     if (frame.empty()) {
       std::cerr << "Empty frame received from camera" << std::endl;
@@ -135,6 +138,10 @@ int main(int argc, char** argv) {
     if (key == 'q' || key == 27) {
       break;
     }
+  }
+
+  if (ShutdownFlag::Instance().Requested()) {
+    std::cout << "[focus-monitor] Shutting down (signal received)" << std::endl;
   }
 
   camera.release();

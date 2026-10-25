@@ -34,3 +34,6 @@ add_test(NAME session_logger_test COMMAND session_logger_test)
 
 add_executable(notifier_test tests/test_notifier.cpp)
 add_test(NAME notifier_test COMMAND notifier_test)
+
+add_executable(shutdown_flag_test tests/test_shutdown_flag.cpp)
+add_test(NAME shutdown_flag_test COMMAND shutdown_flag_test)

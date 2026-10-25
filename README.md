@@ -31,6 +31,10 @@ C++ / OpenCV を用いて、カメラ映像から人の顔を検出し、パソ�
   (`src/session_logger.h`)。ログ出力先は `--session-log` で変更、`--no-session-log`
   で無効化できる。ファイルが書き込めない場合も警告を出すだけでセッション自体は正常に
   終了する。
+- `Ctrl-C`（`SIGINT`）や `kill`（`SIGTERM`）で終了した場合も、デフォルトハンドラに
+  よる即時終了ではなく `q`/ESC と同じ正常終了パスを通る(`src/shutdown_flag.h`)。
+  これにより `camera.release()`・ウィンドウの破棄に加え、上記のセッションログも
+  確実に書き込まれる。
 
 ## 必要環境
 
@@ -70,7 +74,8 @@ cmake --build .
 ./build/focus_monitor
 ```
 
-`q` キーまたは ESC キーで終了します。
+`q` キーまたは ESC キーで終了します。`Ctrl-C`/`kill` による終了でも同じ
+正常終了パスを通ります。
 
 以下のオプションで既定値を変更できる(カスケードパスの指定は従来通り第1引数):
 
@@ -118,7 +123,8 @@ ended_at,duration_seconds,focus_percent
 `FocusTracker`(グレースピリオド・集中率の計算)、`AlertScheduler`(アラートの
 発火タイミング)、`Config`(コマンドライン引数のパース)、`session_logger`
 (セッションサマリの CSV フォーマットとファイル追記)、`EscapeForShell`
-(`notify-send` コマンド文字列へ埋め込む前のシェルエスケープ)は、カメラや
+(`notify-send` コマンド文字列へ埋め込む前のシェルエスケープ)、`ShutdownFlag`
+(`SIGINT`/`SIGTERM` ハンドラが実際にフラグを立てること)は、カメラや
 OpenCV に依存しない純粋なロジックなので、外部テストフレームワークを追加せず、
 `tests/test_framework.h` の小さな自作ハーネスと CTest だけでテストしている。
 `EscapeForShell` のテストは実際にシェル経由でコマンドを実行し、エスケープ後の
