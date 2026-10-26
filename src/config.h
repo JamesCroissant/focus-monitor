@@ -22,6 +22,12 @@ struct Config {
   // Where each session's summary line is appended on exit (see
   // session_logger.h). Empty means "don't log" (--no-session-log).
   std::string session_log_path = "focus_sessions.csv";
+  // Smallest face (in pixels, both dimensions) detectMultiScale will
+  // report, passed straight through as its minSize argument. The right
+  // value depends on the camera's resolution and how far it sits from
+  // the user -- a value tuned for a close-up laptop webcam is too large
+  // for a desk-mounted camera further away, and vice versa.
+  int min_face_size_px = 60;
 };
 
 struct ParseArgsResult {
@@ -35,11 +41,12 @@ struct ParseArgsResult {
 // Accepts at most one bare positional argument (the cascade path, matching
 // the original "./focus_monitor [cascade_path]" usage) alongside
 // `--camera N`, `--grace-period SECONDS`, `--alert-delay SECONDS`,
-// `--alert-interval SECONDS`, `--session-log PATH`, and
-// `--no-session-log`. On any error (unknown flag, missing value, a value
-// that doesn't parse as a number, a timing value that isn't finite and
-// non-negative, more than one positional argument), returns `ok == false`
-// with a human-readable `error` and an unspecified `config`.
+// `--alert-interval SECONDS`, `--session-log PATH`, `--no-session-log`,
+// and `--min-face-size PX`. On any error (unknown flag, missing value, a
+// value that doesn't parse as a number, a timing value that isn't finite
+// and non-negative, a non-positive face size, more than one positional
+// argument), returns `ok == false` with a human-readable `error` and an
+// unspecified `config`.
 inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
   ParseArgsResult result;
   bool have_positional = false;
@@ -106,6 +113,29 @@ inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
       result.config.session_log_path = *value;
     } else if (arg == "--no-session-log") {
       result.config.session_log_path.clear();
+    } else if (arg == "--min-face-size") {
+      const auto value = next_value(i, arg);
+      if (!value) {
+        return result;
+      }
+      try {
+        size_t consumed = 0;
+        const int px = std::stoi(*value, &consumed);
+        if (consumed != value->size()) {
+          throw std::invalid_argument("trailing characters");
+        }
+        // A zero or negative minSize isn't just an odd setting --
+        // cv::Size's width/height feed directly into OpenCV's cascade
+        // scaling math, where a non-positive dimension is nonsensical.
+        if (px <= 0) {
+          throw std::invalid_argument("not positive");
+        }
+        result.config.min_face_size_px = px;
+      } catch (const std::exception&) {
+        result.ok = false;
+        result.error = arg + " expects a positive integer, got '" + *value + "'";
+        return result;
+      }
     } else if (arg.rfind("--", 0) == 0) {
       result.ok = false;
       result.error = "unknown flag: " + arg;

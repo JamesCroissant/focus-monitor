@@ -12,6 +12,21 @@ void DefaultsWhenNoArgsGiven() {
   CHECK_NEAR(result.config.alert_delay_seconds, 10.0, 1e-9);
   CHECK_NEAR(result.config.alert_interval_seconds, 30.0, 1e-9);
   CHECK(result.config.session_log_path == "focus_sessions.csv");
+  CHECK(result.config.min_face_size_px == 60);
+}
+
+void MinFaceSizeFlagOverridesTheDefault() {
+  const auto result = ParseArgs({"--min-face-size", "120"});
+  CHECK(result.ok);
+  CHECK(result.config.min_face_size_px == 120);
+}
+
+// Fed straight into cv::Size's width/height, where a non-positive
+// dimension is nonsensical -- std::stoi parses "0"/"-30" without
+// complaint, so this has to be checked explicitly.
+void NonPositiveMinFaceSizeIsRejected() {
+  CHECK(!ParseArgs({"--min-face-size", "0"}).ok);
+  CHECK(!ParseArgs({"--min-face-size", "-30"}).ok);
 }
 
 void SessionLogFlagOverridesTheDefaultPath() {
@@ -132,6 +147,8 @@ void ZeroTimingValueIsAccepted() {
 
 int main() {
   RUN_TEST(DefaultsWhenNoArgsGiven);
+  RUN_TEST(MinFaceSizeFlagOverridesTheDefault);
+  RUN_TEST(NonPositiveMinFaceSizeIsRejected);
   RUN_TEST(SessionLogFlagOverridesTheDefaultPath);
   RUN_TEST(NoSessionLogFlagClearsThePath);
   RUN_TEST(SessionLogFlagMissingItsValueIsRejected);

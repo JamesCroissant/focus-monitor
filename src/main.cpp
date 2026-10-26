@@ -53,6 +53,7 @@ int main(int argc, char** argv) {
               << " [cascade_path] [--camera N] [--grace-period SECONDS]"
                  " [--alert-delay SECONDS] [--alert-interval SECONDS]"
                  " [--session-log PATH] [--no-session-log]"
+                 " [--min-face-size PX]"
               << std::endl;
     return 1;
   }
@@ -101,7 +102,8 @@ int main(int argc, char** argv) {
     cv::equalizeHist(gray, gray);
 
     faces.clear();
-    face_cascade.detectMultiScale(gray, faces, 1.1, 4, 0, cv::Size(60, 60));
+    face_cascade.detectMultiScale(gray, faces, 1.1, 4, 0,
+                                   cv::Size(config.min_face_size_px, config.min_face_size_px));
 
     for (const auto& face : faces) {
       cv::rectangle(frame, face, cv::Scalar(0, 255, 0), 2);

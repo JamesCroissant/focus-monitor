@@ -35,6 +35,9 @@ C++ / OpenCV を用いて、カメラ映像から人の顔を検出し、パソ�
   よる即時終了ではなく `q`/ESC と同じ正常終了パスを通る(`src/shutdown_flag.h`)。
   これにより `camera.release()`・ウィンドウの破棄に加え、上記のセッションログも
   確実に書き込まれる。
+- 顔検出の最小サイズ(`detectMultiScale` の `minSize`)もコマンドラインオプション
+  `--min-face-size` で変更できる(既定 60px)。カメラの解像度やユーザーとの距離に
+  よって最適な値は変わるため、固定値のままでは検出精度が環境依存になってしまう。
 
 ## 必要環境
 
@@ -85,7 +88,8 @@ cmake --build .
     [--grace-period SECONDS] \
     [--alert-delay SECONDS] \
     [--alert-interval SECONDS] \
-    [--session-log PATH] [--no-session-log]
+    [--session-log PATH] [--no-session-log] \
+    [--min-face-size PX]
 ```
 
 - `--camera N`: 使用するカメラのデバイス番号(既定 0)。
@@ -103,6 +107,8 @@ cmake --build .
 - `--session-log PATH`: セッション終了時にサマリ(CSV)を追記するファイルのパス
   (既定 `focus_sessions.csv`)。
 - `--no-session-log`: セッションログの記録を無効化する。
+- `--min-face-size PX`: 顔検出の最小サイズ(ピクセル、正方形の一辺、既定 60)。
+  0 以下の値はエラーになる。
 
 ### セッションログ (`focus_sessions.csv`)
 
