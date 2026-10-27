@@ -1,8 +1,6 @@
 #include <opencv2/opencv.hpp>
-#include <opencv2/core/utils/filesystem.hpp>
 #include <opencv2/objdetect.hpp>
 
-#include <array>
 #include <chrono>
 #include <iostream>
 #include <sstream>
@@ -10,6 +8,7 @@
 #include <vector>
 
 #include "alert_scheduler.h"
+#include "cascade_resolver.h"
 #include "config.h"
 #include "focus_tracker.h"
 #include "notifier.h"
@@ -17,25 +16,6 @@
 #include "shutdown_flag.h"
 
 namespace {
-
-constexpr std::array<const char*, 4> kCascadeSearchPaths = {
-    "data/haarcascades/haarcascade_frontalface_default.xml",
-    "/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml",
-    "/usr/local/share/opencv4/haarcascades/haarcascade_frontalface_default.xml",
-    "/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml",
-};
-
-std::string ResolveCascadePath(const std::string& explicit_path) {
-  if (!explicit_path.empty()) {
-    return explicit_path;
-  }
-  for (const char* path : kCascadeSearchPaths) {
-    if (cv::utils::fs::exists(path)) {
-      return path;
-    }
-  }
-  return kCascadeSearchPaths.front();
-}
 
 template <typename DurationT>
 DurationT SecondsToDuration(double seconds) {
@@ -59,7 +39,9 @@ int main(int argc, char** argv) {
   }
   const Config& config = parsed.config;
 
-  const std::string cascade_path = ResolveCascadePath(config.cascade_path);
+  const auto& default_search_paths = DefaultCascadeSearchPaths();
+  const std::string cascade_path = ResolveCascadePath(
+      config.cascade_path, std::vector<std::string>(default_search_paths.begin(), default_search_paths.end()));
 
   cv::CascadeClassifier face_cascade;
   if (!face_cascade.load(cascade_path)) {

@@ -37,3 +37,6 @@ add_test(NAME notifier_test COMMAND notifier_test)
 
 add_executable(shutdown_flag_test tests/test_shutdown_flag.cpp)
 add_test(NAME shutdown_flag_test COMMAND shutdown_flag_test)
+
+add_executable(cascade_resolver_test tests/test_cascade_resolver.cpp)
+add_test(NAME cascade_resolver_test COMMAND cascade_resolver_test)

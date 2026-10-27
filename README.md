@@ -130,9 +130,13 @@ ended_at,duration_seconds,focus_percent
 発火タイミング)、`Config`(コマンドライン引数のパース)、`session_logger`
 (セッションサマリの CSV フォーマットとファイル追記)、`EscapeForShell`
 (`notify-send` コマンド文字列へ埋め込む前のシェルエスケープ)、`ShutdownFlag`
-(`SIGINT`/`SIGTERM` ハンドラが実際にフラグを立てること)は、カメラや
-OpenCV に依存しない純粋なロジックなので、外部テストフレームワークを追加せず、
-`tests/test_framework.h` の小さな自作ハーネスと CTest だけでテストしている。
+(`SIGINT`/`SIGTERM` ハンドラが実際にフラグを立てること)、`ResolveCascadePath`
+(カスケードファイルの探索順)は、カメラや OpenCV に依存しない純粋なロジック
+なので、外部テストフレームワークを追加せず、`tests/test_framework.h` の
+小さな自作ハーネスと CTest だけでテストしている。もともと `ResolveCascadePath`
+は `cv::utils::fs::exists` を使っていたため main.cpp 内に未テストのまま
+残っていたが、`std::filesystem::exists` に置き換えて `src/cascade_resolver.h`
+へ切り出すことで OpenCV 依存を切り、テスト可能にした。
 `EscapeForShell` のテストは実際にシェル経由でコマンドを実行し、エスケープ後の
 文字列が元の文字列へ正しくラウンドトリップすること、および悪意ある入力(`"`を
 含む文字列)がダブルクオートを抜け出してコマンドインジェクションを起こさない
