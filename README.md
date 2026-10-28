@@ -38,6 +38,10 @@ C++ / OpenCV を用いて、カメラ映像から人の顔を検出し、パソ�
 - 顔検出の最小サイズ(`detectMultiScale` の `minSize`)もコマンドラインオプション
   `--min-face-size` で変更できる(既定 60px)。カメラの解像度やユーザーとの距離に
   よって最適な値は変わるため、固定値のままでは検出精度が環境依存になってしまう。
+- カメラから一時的に空フレームを受け取っても即座には終了せず、最大30回連続
+  (`src/consecutive_failure_guard.h`、既定の再試行間隔10msで約300ms相当)まで
+  再試行してから本当にカメラが切断されたと判断する。健全なカメラでも起こり得る
+  1フレームだけの取得失敗で、セッション全体を打ち切ってしまうことを防ぐ。
 
 ## 必要環境
 
@@ -131,12 +135,13 @@ ended_at,duration_seconds,focus_percent
 (セッションサマリの CSV フォーマットとファイル追記)、`EscapeForShell`
 (`notify-send` コマンド文字列へ埋め込む前のシェルエスケープ)、`ShutdownFlag`
 (`SIGINT`/`SIGTERM` ハンドラが実際にフラグを立てること)、`ResolveCascadePath`
-(カスケードファイルの探索順)は、カメラや OpenCV に依存しない純粋なロジック
-なので、外部テストフレームワークを追加せず、`tests/test_framework.h` の
-小さな自作ハーネスと CTest だけでテストしている。もともと `ResolveCascadePath`
-は `cv::utils::fs::exists` を使っていたため main.cpp 内に未テストのまま
-残っていたが、`std::filesystem::exists` に置き換えて `src/cascade_resolver.h`
-へ切り出すことで OpenCV 依存を切り、テスト可能にした。
+(カスケードファイルの探索順)、`ConsecutiveFailureGuard`(連続失敗回数のしきい値
+判定)は、カメラや OpenCV に依存しない純粋なロジックなので、外部テスト
+フレームワークを追加せず、`tests/test_framework.h` の小さな自作ハーネスと
+CTest だけでテストしている。もともと `ResolveCascadePath` は
+`cv::utils::fs::exists` を使っていたため main.cpp 内に未テストのまま残って
+いたが、`std::filesystem::exists` に置き換えて `src/cascade_resolver.h` へ
+切り出すことで OpenCV 依存を切り、テスト可能にした。
 `EscapeForShell` のテストは実際にシェル経由でコマンドを実行し、エスケープ後の
 文字列が元の文字列へ正しくラウンドトリップすること、および悪意ある入力(`"`を
 含む文字列)がダブルクオートを抜け出してコマンドインジェクションを起こさない

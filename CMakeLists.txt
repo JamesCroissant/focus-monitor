@@ -40,3 +40,6 @@ add_test(NAME shutdown_flag_test COMMAND shutdown_flag_test)
 
 add_executable(cascade_resolver_test tests/test_cascade_resolver.cpp)
 add_test(NAME cascade_resolver_test COMMAND cascade_resolver_test)
+
+add_executable(consecutive_failure_guard_test tests/test_consecutive_failure_guard.cpp)
+add_test(NAME consecutive_failure_guard_test COMMAND consecutive_failure_guard_test)

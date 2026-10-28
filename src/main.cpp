@@ -5,11 +5,13 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "alert_scheduler.h"
 #include "cascade_resolver.h"
 #include "config.h"
+#include "consecutive_failure_guard.h"
 #include "focus_tracker.h"
 #include "notifier.h"
 #include "session_logger.h"
@@ -21,6 +23,14 @@ template <typename DurationT>
 DurationT SecondsToDuration(double seconds) {
   return std::chrono::duration_cast<DurationT>(std::chrono::duration<double>(seconds));
 }
+
+// A single empty frame can happen transiently on an otherwise healthy
+// camera (a momentary decode hiccup, a buffer underrun); only this many
+// in a row, with no real frame in between, is treated as the camera
+// having actually disconnected. ~300ms of consecutive failures at the
+// retry delay below.
+constexpr int kMaxConsecutiveEmptyFrames = 30;
+constexpr auto kEmptyFrameRetryDelay = std::chrono::milliseconds(10);
 
 }  // namespace
 
@@ -73,12 +83,19 @@ int main(int argc, char** argv) {
   cv::Mat frame;
   cv::Mat gray;
   std::vector<cv::Rect> faces;
+  ConsecutiveFailureGuard empty_frame_guard(kMaxConsecutiveEmptyFrames);
   while (!ShutdownFlag::Instance().Requested()) {
     camera >> frame;
     if (frame.empty()) {
-      std::cerr << "Empty frame received from camera" << std::endl;
-      break;
+      if (empty_frame_guard.RecordFailure()) {
+        std::cerr << "Camera: " << kMaxConsecutiveEmptyFrames
+                   << " consecutive empty frames -- giving up" << std::endl;
+        break;
+      }
+      std::this_thread::sleep_for(kEmptyFrameRetryDelay);
+      continue;
     }
+    empty_frame_guard.RecordSuccess();
 
     cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
     cv::equalizeHist(gray, gray);
