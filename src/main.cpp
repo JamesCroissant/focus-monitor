@@ -32,6 +32,15 @@ DurationT SecondsToDuration(double seconds) {
 constexpr int kMaxConsecutiveEmptyFrames = 30;
 constexpr auto kEmptyFrameRetryDelay = std::chrono::milliseconds(10);
 
+// Distinguishes "the camera actually failed mid-session" from every other
+// way main() exits with the loop having run at all ('q'/ESC, a received
+// signal) -- those are all equally intentional shutdowns and keep returning
+// 0, same as before this existed. A caller that wants to auto-restart
+// focus-monitor specifically when the camera disconnects (a systemd unit
+// with Restart=on-failure plus SuccessExitStatus, a supervising script,
+// ...) has no way to tell the two apart from the exit code alone otherwise.
+constexpr int kCameraDisconnectedExitCode = 2;
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -84,12 +93,14 @@ int main(int argc, char** argv) {
   cv::Mat gray;
   std::vector<cv::Rect> faces;
   ConsecutiveFailureGuard empty_frame_guard(kMaxConsecutiveEmptyFrames);
+  bool camera_disconnected = false;
   while (!ShutdownFlag::Instance().Requested()) {
     camera >> frame;
     if (frame.empty()) {
       if (empty_frame_guard.RecordFailure()) {
         std::cerr << "Camera: " << kMaxConsecutiveEmptyFrames
                    << " consecutive empty frames -- giving up" << std::endl;
+        camera_disconnected = true;
         break;
       }
       std::this_thread::sleep_for(kEmptyFrameRetryDelay);
@@ -159,5 +170,5 @@ int main(int argc, char** argv) {
     }
   }
 
-  return 0;
+  return camera_disconnected ? kCameraDisconnectedExitCode : 0;
 }
