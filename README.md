@@ -42,6 +42,14 @@ C++ / OpenCV を用いて、カメラ映像から人の顔を検出し、パソ�
   (`src/consecutive_failure_guard.h`、既定の再試行間隔10msで約300ms相当)まで
   再試行してから本当にカメラが切断されたと判断する。健全なカメラでも起こり得る
   1フレームだけの取得失敗で、セッション全体を打ち切ってしまうことを防ぐ。
+- セッション中にカメラが切断されて終了した場合は、`q`/ESC や `Ctrl-C`/`kill` に
+  よる終了とは異なる終了コード(`2`)を返す。終了コード一覧は下記「終了コード」
+  節を参照。
+- `--session-log` に書き続けてきた CSV は追記されるだけで、これまで
+  `focus_monitor` 自身がそれを読み返すことはなかった。`--stats` でこれまでの
+  セッション履歴(セッション数・合計追跡時間・長さで重み付けした平均集中率)を
+  集計して表示できる(`src/session_logger.h` の `ReadSessionLogStats`)。
+  カメラは一切開かない。
 
 ## 必要環境
 
@@ -104,7 +112,7 @@ cmake --build .
     [--alert-delay SECONDS] \
     [--alert-interval SECONDS] \
     [--session-log PATH] [--no-session-log] \
-    [--min-face-size PX]
+    [--min-face-size PX] [--stats]
 ```
 
 - `--camera N`: 使用するカメラのデバイス番号(既定 0)。
@@ -124,6 +132,18 @@ cmake --build .
 - `--no-session-log`: セッションログの記録を無効化する。
 - `--min-face-size PX`: 顔検出の最小サイズ(ピクセル、正方形の一辺、既定 60)。
   0 以下の値はエラーになる。
+- `--stats`: カメラを一切開かず、`--session-log`(既定 `focus_sessions.csv`)の
+  これまでの履歴を集計して表示し、終了する。セッション数・合計追跡時間・
+  平均集中率(各セッションの長さで重み付けした平均。10分@90%のセッションは
+  10秒@10%のセッションより平均への影響が大きい)を表示する。ログファイルが
+  存在しない場合はエラーになるため、`--no-session-log` と併用はできない。
+
+  ```sh
+  $ ./build/focus_monitor --stats
+  Sessions recorded: 12
+  Total tracked time: 8640s
+  Average focus rate: 78.3%
+  ```
 
 ### セッションログ (`focus_sessions.csv`)
 
@@ -143,7 +163,9 @@ ended_at,duration_seconds,focus_percent
 
 `FocusTracker`(グレースピリオド・集中率の計算)、`AlertScheduler`(アラートの
 発火タイミング)、`Config`(コマンドライン引数のパース)、`session_logger`
-(セッションサマリの CSV フォーマットとファイル追記)、`EscapeForShell`
+(セッションサマリの CSV フォーマットとファイル追記、および `--stats` が使う
+`ReadSessionLogStats` による集計・長さによる重み付け平均・壊れた行のスキップ)、
+`EscapeForShell`
 (`notify-send` コマンド文字列へ埋め込む前のシェルエスケープ)、`ShutdownFlag`
 (`SIGINT`/`SIGTERM` ハンドラが実際にフラグを立てること)、`ResolveCascadePath`
 (カスケードファイルの探索順)、`ConsecutiveFailureGuard`(連続失敗回数のしきい値

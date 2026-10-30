@@ -28,6 +28,10 @@ struct Config {
   // the user -- a value tuned for a close-up laptop webcam is too large
   // for a desk-mounted camera further away, and vice versa.
   int min_face_size_px = 60;
+  // --stats: print a summary of session_log_path's history and exit,
+  // instead of opening the camera at all (see session_logger.h's
+  // ReadSessionLogStats).
+  bool show_stats = false;
 };
 
 struct ParseArgsResult {
@@ -42,7 +46,7 @@ struct ParseArgsResult {
 // the original "./focus_monitor [cascade_path]" usage) alongside
 // `--camera N`, `--grace-period SECONDS`, `--alert-delay SECONDS`,
 // `--alert-interval SECONDS`, `--session-log PATH`, `--no-session-log`,
-// and `--min-face-size PX`. On any error (unknown flag, missing value, a
+// `--min-face-size PX`, and `--stats`. On any error (unknown flag, missing value, a
 // value that doesn't parse as a number, a timing value that isn't finite
 // and non-negative, a non-positive face size, more than one positional
 // argument), returns `ok == false` with a human-readable `error` and an
@@ -113,6 +117,8 @@ inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
       result.config.session_log_path = *value;
     } else if (arg == "--no-session-log") {
       result.config.session_log_path.clear();
+    } else if (arg == "--stats") {
+      result.config.show_stats = true;
     } else if (arg == "--min-face-size") {
       const auto value = next_value(i, arg);
       if (!value) {
@@ -149,6 +155,15 @@ inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
       result.config.cascade_path = arg;
       have_positional = true;
     }
+  }
+
+  // --stats has nothing to read back without a log path -- catching this
+  // here, once, instead of leaving ReadSessionLogStats to fail on an
+  // empty path with a confusing "no log found at ''" error.
+  if (result.config.show_stats && result.config.session_log_path.empty()) {
+    result.ok = false;
+    result.error = "--stats requires a session log; it can't be combined with --no-session-log";
+    return result;
   }
 
   return result;

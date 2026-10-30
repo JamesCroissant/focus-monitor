@@ -88,6 +88,87 @@ void WritingToAnUnwritableDirectoryFailsWithoutThrowing() {
   CHECK(!ok);
 }
 
+void ReadingStatsFromAMissingFileReturnsNullopt() {
+  const auto stats = ReadSessionLogStats("/nonexistent_dir_for_focus_monitor_tests/sessions.csv");
+  CHECK(!stats.has_value());
+}
+
+void ReadingStatsFromAHeaderOnlyFileReturnsZeroSessions() {
+  const std::filesystem::path path =
+      std::filesystem::temp_directory_path() / "focus_monitor_test_stats_header_only.csv";
+  std::ofstream(path) << "ended_at,duration_seconds,focus_percent\n";
+
+  const auto stats = ReadSessionLogStats(path.string());
+  CHECK(stats.has_value());
+  CHECK(stats->session_count == 0);
+  CHECK_NEAR(stats->average_focus_percent, 0.0, 1e-9);
+
+  std::filesystem::remove(path);
+}
+
+// The average is weighted by duration, not a plain mean of the two
+// percentages -- a 10s@0% session shouldn't cancel out a 90s@100% one
+// down to 50%, it should barely move the average at all.
+void StatsAverageFocusPercentIsDurationWeighted() {
+  const std::filesystem::path path =
+      std::filesystem::temp_directory_path() / "focus_monitor_test_stats_weighted.csv";
+  std::filesystem::remove(path);
+  SessionSummary a = MakeSummary();
+  a.duration_seconds = 90.0;
+  a.focus_ratio = 1.0;
+  SessionSummary b = MakeSummary();
+  b.duration_seconds = 10.0;
+  b.focus_ratio = 0.0;
+  CHECK(AppendSessionSummary(path.string(), a));
+  CHECK(AppendSessionSummary(path.string(), b));
+
+  const auto stats = ReadSessionLogStats(path.string());
+  CHECK(stats.has_value());
+  CHECK(stats->session_count == 2);
+  CHECK_NEAR(stats->total_duration_seconds, 100.0, 1e-9);
+  CHECK_NEAR(stats->average_focus_percent, 90.0, 1e-9);
+
+  std::filesystem::remove(path);
+}
+
+// All sessions on record have zero duration -- nothing to weight by, so
+// the average falls back to 0 instead of a division by zero.
+void StatsWithOnlyZeroDurationSessionsAveragesToZero() {
+  const std::filesystem::path path =
+      std::filesystem::temp_directory_path() / "focus_monitor_test_stats_zero_duration.csv";
+  std::filesystem::remove(path);
+  SessionSummary zero = MakeSummary();
+  zero.duration_seconds = 0.0;
+  zero.focus_ratio = 1.0;
+  CHECK(AppendSessionSummary(path.string(), zero));
+
+  const auto stats = ReadSessionLogStats(path.string());
+  CHECK(stats.has_value());
+  CHECK(stats->session_count == 1);
+  CHECK_NEAR(stats->average_focus_percent, 0.0, 1e-9);
+
+  std::filesystem::remove(path);
+}
+
+// A malformed line (truncated write, hand-edited file) is skipped rather
+// than aborting the whole read or throwing.
+void MalformedLineIsSkippedRatherThanAborting() {
+  const std::filesystem::path path =
+      std::filesystem::temp_directory_path() / "focus_monitor_test_stats_malformed.csv";
+  std::ofstream out(path);
+  out << "ended_at,duration_seconds,focus_percent\n"
+      << "2024-01-02T03:04:05Z,not-a-number,87.6\n"
+      << "2024-01-02T03:04:05Z,10.0,50.0\n";
+  out.close();
+
+  const auto stats = ReadSessionLogStats(path.string());
+  CHECK(stats.has_value());
+  CHECK(stats->session_count == 1);
+  CHECK_NEAR(stats->total_duration_seconds, 10.0, 1e-9);
+
+  std::filesystem::remove(path);
+}
+
 }  // namespace
 
 int main() {
@@ -97,5 +178,10 @@ int main() {
   RUN_TEST(AppendingToANewFileWritesHeaderThenOneLine);
   RUN_TEST(AppendingToAnExistingFileDoesNotDuplicateTheHeader);
   RUN_TEST(WritingToAnUnwritableDirectoryFailsWithoutThrowing);
+  RUN_TEST(ReadingStatsFromAMissingFileReturnsNullopt);
+  RUN_TEST(ReadingStatsFromAHeaderOnlyFileReturnsZeroSessions);
+  RUN_TEST(StatsAverageFocusPercentIsDurationWeighted);
+  RUN_TEST(StatsWithOnlyZeroDurationSessionsAveragesToZero);
+  RUN_TEST(MalformedLineIsSkippedRatherThanAborting);
   return test_framework::FailureCount() == 0 ? 0 : 1;
 }

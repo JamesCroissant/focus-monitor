@@ -41,6 +41,33 @@ void NoSessionLogFlagClearsThePath() {
   CHECK(result.config.session_log_path.empty());
 }
 
+void StatsFlagDefaultsToFalse() {
+  const auto result = ParseArgs({});
+  CHECK(result.ok);
+  CHECK(!result.config.show_stats);
+}
+
+void StatsFlagIsAccepted() {
+  const auto result = ParseArgs({"--stats"});
+  CHECK(result.ok);
+  CHECK(result.config.show_stats);
+}
+
+// --stats reads back the session log; nothing to read if there isn't
+// one, so combining it with --no-session-log is a contradiction, not a
+// silent no-op.
+void StatsFlagCombinedWithNoSessionLogIsRejected() {
+  const auto result = ParseArgs({"--stats", "--no-session-log"});
+  CHECK(!result.ok);
+  CHECK(result.error.find("--stats") != std::string::npos);
+}
+
+// Order shouldn't matter -- the same contradiction either way round.
+void NoSessionLogCombinedWithStatsFlagIsRejected() {
+  const auto result = ParseArgs({"--no-session-log", "--stats"});
+  CHECK(!result.ok);
+}
+
 void SessionLogFlagMissingItsValueIsRejected() {
   const auto result = ParseArgs({"--session-log"});
   CHECK(!result.ok);
@@ -151,6 +178,10 @@ int main() {
   RUN_TEST(NonPositiveMinFaceSizeIsRejected);
   RUN_TEST(SessionLogFlagOverridesTheDefaultPath);
   RUN_TEST(NoSessionLogFlagClearsThePath);
+  RUN_TEST(StatsFlagDefaultsToFalse);
+  RUN_TEST(StatsFlagIsAccepted);
+  RUN_TEST(StatsFlagCombinedWithNoSessionLogIsRejected);
+  RUN_TEST(NoSessionLogCombinedWithStatsFlagIsRejected);
   RUN_TEST(SessionLogFlagMissingItsValueIsRejected);
   RUN_TEST(BarePositionalArgumentIsTheCascadePath);
   RUN_TEST(CameraFlagOverridesTheDefault);

@@ -2,6 +2,7 @@
 #include <opencv2/objdetect.hpp>
 
 #include <chrono>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -52,11 +53,25 @@ int main(int argc, char** argv) {
               << " [cascade_path] [--camera N] [--grace-period SECONDS]"
                  " [--alert-delay SECONDS] [--alert-interval SECONDS]"
                  " [--session-log PATH] [--no-session-log]"
-                 " [--min-face-size PX]"
+                 " [--min-face-size PX] [--stats]"
               << std::endl;
     return 1;
   }
   const Config& config = parsed.config;
+
+  if (config.show_stats) {
+    const auto stats = ReadSessionLogStats(config.session_log_path);
+    if (!stats) {
+      std::cerr << "No session log found at " << config.session_log_path << std::endl;
+      return 1;
+    }
+    std::cout << "Sessions recorded: " << stats->session_count << std::endl;
+    std::cout << "Total tracked time: " << static_cast<long long>(stats->total_duration_seconds)
+               << "s" << std::endl;
+    std::cout << "Average focus rate: " << std::fixed << std::setprecision(1)
+               << stats->average_focus_percent << "%" << std::endl;
+    return 0;
+  }
 
   const auto& default_search_paths = DefaultCascadeSearchPaths();
   const std::string cascade_path = ResolveCascadePath(
