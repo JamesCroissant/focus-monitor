@@ -13,6 +13,8 @@ void DefaultsWhenNoArgsGiven() {
   CHECK_NEAR(result.config.alert_interval_seconds, 30.0, 1e-9);
   CHECK(result.config.session_log_path == "focus_sessions.csv");
   CHECK(result.config.min_face_size_px == 60);
+  CHECK(result.config.camera_width_px == 0);
+  CHECK(result.config.camera_height_px == 0);
 }
 
 void MinFaceSizeFlagOverridesTheDefault() {
@@ -27,6 +29,24 @@ void MinFaceSizeFlagOverridesTheDefault() {
 void NonPositiveMinFaceSizeIsRejected() {
   CHECK(!ParseArgs({"--min-face-size", "0"}).ok);
   CHECK(!ParseArgs({"--min-face-size", "-30"}).ok);
+}
+
+// --width/--height default to 0 ("don't ask", leave the camera at
+// whatever it opens with) -- min_face_size_px's own comment already
+// names camera resolution as the reason the right face-size value
+// varies, but nothing let a user actually set it until now.
+void WidthAndHeightFlagsOverrideTheDefault() {
+  const auto result = ParseArgs({"--width", "1920", "--height", "1080"});
+  CHECK(result.ok);
+  CHECK(result.config.camera_width_px == 1920);
+  CHECK(result.config.camera_height_px == 1080);
+}
+
+void NonPositiveWidthOrHeightIsRejected() {
+  CHECK(!ParseArgs({"--width", "0"}).ok);
+  CHECK(!ParseArgs({"--width", "-1"}).ok);
+  CHECK(!ParseArgs({"--height", "0"}).ok);
+  CHECK(!ParseArgs({"--height", "-1"}).ok);
 }
 
 void SessionLogFlagOverridesTheDefaultPath() {
@@ -176,6 +196,8 @@ int main() {
   RUN_TEST(DefaultsWhenNoArgsGiven);
   RUN_TEST(MinFaceSizeFlagOverridesTheDefault);
   RUN_TEST(NonPositiveMinFaceSizeIsRejected);
+  RUN_TEST(WidthAndHeightFlagsOverrideTheDefault);
+  RUN_TEST(NonPositiveWidthOrHeightIsRejected);
   RUN_TEST(SessionLogFlagOverridesTheDefaultPath);
   RUN_TEST(NoSessionLogFlagClearsThePath);
   RUN_TEST(StatsFlagDefaultsToFalse);

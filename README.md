@@ -38,6 +38,9 @@ C++ / OpenCV を用いて、カメラ映像から人の顔を検出し、パソ�
 - 顔検出の最小サイズ(`detectMultiScale` の `minSize`)もコマンドラインオプション
   `--min-face-size` で変更できる(既定 60px)。カメラの解像度やユーザーとの距離に
   よって最適な値は変わるため、固定値のままでは検出精度が環境依存になってしまう。
+- カメラの解像度自体も `--width`/`--height` で指定できる(既定はカメラの
+  デフォルト解像度のまま)。上記の `--min-face-size` の最適値が解像度に
+  依存する以上、解像度そのものを変更する手段が無いのは片手落ちだった。
 - カメラから一時的に空フレームを受け取っても即座には終了せず、最大30回連続
   (`src/consecutive_failure_guard.h`、既定の再試行間隔10msで約300ms相当)まで
   再試行してから本当にカメラが切断されたと判断する。健全なカメラでも起こり得る
@@ -112,10 +115,16 @@ cmake --build .
     [--alert-delay SECONDS] \
     [--alert-interval SECONDS] \
     [--session-log PATH] [--no-session-log] \
-    [--min-face-size PX] [--stats]
+    [--min-face-size PX] [--width PX] [--height PX] [--stats]
 ```
 
 - `--camera N`: 使用するカメラのデバイス番号(既定 0)。
+- `--width PX` / `--height PX`: カメラの解像度を指定する(既定はカメラ
+  オープン時のデフォルト解像度のまま)。`cv::VideoCapture::set` へそのまま
+  渡すベストエフォートのリクエストであり、ドライバ側が対応していない
+  解像度を指定した場合は無視されたり別の値になったりすることがある
+  (その場合でも検出処理自体は実際に得られたフレームサイズに対して
+  正しく動作する)。0 以下の値はエラーになる。
 - `--grace-period SECONDS`: 顔検出が途切れてから Not focused と判定するまでの
   許容時間(既定 2 秒)。
 - `--alert-delay SECONDS`: Not focused になってから最初のアラートまでの時間

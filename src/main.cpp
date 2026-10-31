@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
               << " [cascade_path] [--camera N] [--grace-period SECONDS]"
                  " [--alert-delay SECONDS] [--alert-interval SECONDS]"
                  " [--session-log PATH] [--no-session-log]"
-                 " [--min-face-size PX] [--stats]"
+                 " [--min-face-size PX] [--width PX] [--height PX] [--stats]"
               << std::endl;
     return 1;
   }
@@ -89,6 +89,17 @@ int main(int argc, char** argv) {
   if (!camera.isOpened()) {
     std::cerr << "Failed to open camera " << config.camera_index << std::endl;
     return 1;
+  }
+  // 0 means "don't ask" -- cv::VideoCapture::set() is a best-effort
+  // request to the backend/driver anyway (it can silently fail or grant
+  // a different resolution), so there's nothing to check here; whatever
+  // the camera ends up delivering just shows up as the actual frame
+  // size downstream.
+  if (config.camera_width_px > 0) {
+    camera.set(cv::CAP_PROP_FRAME_WIDTH, config.camera_width_px);
+  }
+  if (config.camera_height_px > 0) {
+    camera.set(cv::CAP_PROP_FRAME_HEIGHT, config.camera_height_px);
   }
 
   InstallShutdownSignalHandlers();

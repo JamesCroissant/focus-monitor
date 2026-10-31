@@ -28,6 +28,17 @@ struct Config {
   // the user -- a value tuned for a close-up laptop webcam is too large
   // for a desk-mounted camera further away, and vice versa.
   int min_face_size_px = 60;
+  // Requested camera resolution (--width/--height), passed straight
+  // through to cv::VideoCapture::set(CAP_PROP_FRAME_WIDTH/HEIGHT) in
+  // main.cpp. 0 means "don't ask" -- leave the camera at whatever
+  // resolution it opens with by default, rather than forcing a
+  // potentially-unsupported mode on every user who doesn't care.
+  // min_face_size_px's own comment already names resolution as the
+  // reason the right face-size value varies; this is what was missing
+  // to actually act on that instead of just being stuck with the
+  // camera's default.
+  int camera_width_px = 0;
+  int camera_height_px = 0;
   // --stats: print a summary of session_log_path's history and exit,
   // instead of opening the camera at all (see session_logger.h's
   // ReadSessionLogStats).
@@ -46,7 +57,7 @@ struct ParseArgsResult {
 // the original "./focus_monitor [cascade_path]" usage) alongside
 // `--camera N`, `--grace-period SECONDS`, `--alert-delay SECONDS`,
 // `--alert-interval SECONDS`, `--session-log PATH`, `--no-session-log`,
-// `--min-face-size PX`, and `--stats`. On any error (unknown flag, missing value, a
+// `--min-face-size PX`, `--width PX`, `--height PX`, and `--stats`. On any error (unknown flag, missing value, a
 // value that doesn't parse as a number, a timing value that isn't finite
 // and non-negative, a non-positive face size, more than one positional
 // argument), returns `ok == false` with a human-readable `error` and an
@@ -62,6 +73,28 @@ inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
       return std::nullopt;
     }
     return args[++i];
+  };
+
+  // Shared by --min-face-size/--width/--height: all three feed a
+  // dimension (pixels) into OpenCV APIs (cv::Size, CAP_PROP_FRAME_*)
+  // where zero or negative is nonsensical, and std::stoi parses "0"/
+  // "-30" without complaint, so each has to check this explicitly.
+  auto parse_positive_int = [&](const std::string& flag, const std::string& value) -> std::optional<int> {
+    try {
+      size_t consumed = 0;
+      const int parsed = std::stoi(value, &consumed);
+      if (consumed != value.size()) {
+        throw std::invalid_argument("trailing characters");
+      }
+      if (parsed <= 0) {
+        throw std::invalid_argument("not positive");
+      }
+      return parsed;
+    } catch (const std::exception&) {
+      result.ok = false;
+      result.error = flag + " expects a positive integer, got '" + value + "'";
+      return std::nullopt;
+    }
   };
 
   for (size_t i = 0; i < args.size(); ++i) {
@@ -124,24 +157,21 @@ inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
       if (!value) {
         return result;
       }
-      try {
-        size_t consumed = 0;
-        const int px = std::stoi(*value, &consumed);
-        if (consumed != value->size()) {
-          throw std::invalid_argument("trailing characters");
-        }
-        // A zero or negative minSize isn't just an odd setting --
-        // cv::Size's width/height feed directly into OpenCV's cascade
-        // scaling math, where a non-positive dimension is nonsensical.
-        if (px <= 0) {
-          throw std::invalid_argument("not positive");
-        }
-        result.config.min_face_size_px = px;
-      } catch (const std::exception&) {
-        result.ok = false;
-        result.error = arg + " expects a positive integer, got '" + *value + "'";
+      const auto px = parse_positive_int(arg, *value);
+      if (!px) {
         return result;
       }
+      result.config.min_face_size_px = *px;
+    } else if (arg == "--width" || arg == "--height") {
+      const auto value = next_value(i, arg);
+      if (!value) {
+        return result;
+      }
+      const auto px = parse_positive_int(arg, *value);
+      if (!px) {
+        return result;
+      }
+      (arg == "--width" ? result.config.camera_width_px : result.config.camera_height_px) = *px;
     } else if (arg.rfind("--", 0) == 0) {
       result.ok = false;
       result.error = "unknown flag: " + arg;
