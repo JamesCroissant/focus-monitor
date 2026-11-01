@@ -48,6 +48,19 @@ void LosesFocusOnceGracePeriodElapses() {
   CHECK(!tracker.focused());
 }
 
+// The grace-period check is `now - last_face_seen_ >= grace_period_`, not
+// `>` -- landing exactly on the boundary already counts as exceeded, not
+// still-tolerated. None of the other grace-period tests land exactly on
+// this edge (they're comfortably inside or past it); AlertScheduler's own
+// boundary tests (e.g. AlertsOnceDelayElapses) do test their exact edge,
+// so this closes the same gap here.
+void LosesFocusExactlyAtGracePeriodBoundary() {
+  FocusTracker tracker(T(0), std::chrono::seconds(2));
+  CHECK(!tracker.Update(/*face_seen=*/true, T(1)));  // last_face_seen_ = T(1)
+  CHECK(tracker.Update(/*face_seen=*/false, T(3)));  // exactly a 2.0s gap
+  CHECK(!tracker.focused());
+}
+
 void RegainsFocusAsSoonAsFaceReappears() {
   FocusTracker tracker(T(0), std::chrono::seconds(2));
   tracker.Update(/*face_seen=*/true, T(1));
@@ -87,6 +100,7 @@ int main() {
   RUN_TEST(StaysFocusedWhileFaceIsSeen);
   RUN_TEST(ShortGapWithinGracePeriodDoesNotLoseFocus);
   RUN_TEST(LosesFocusOnceGracePeriodElapses);
+  RUN_TEST(LosesFocusExactlyAtGracePeriodBoundary);
   RUN_TEST(RegainsFocusAsSoonAsFaceReappears);
   RUN_TEST(SecondsInCurrentStateTracksTimeSinceTransition);
   RUN_TEST(FocusRatioReflectsTimeSpentInEachState);
