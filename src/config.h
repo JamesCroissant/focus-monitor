@@ -189,10 +189,15 @@ inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
 
   // --stats has nothing to read back without a log path -- catching this
   // here, once, instead of leaving ReadSessionLogStats to fail on an
-  // empty path with a confusing "no log found at ''" error.
+  // empty path with a confusing "no log found at ''" error. An empty
+  // path isn't only reachable via --no-session-log: `--session-log ""`
+  // gets there too, so the message names the actual condition (an
+  // empty path) rather than pointing at one specific way to cause it.
   if (result.config.show_stats && result.config.session_log_path.empty()) {
     result.ok = false;
-    result.error = "--stats requires a session log; it can't be combined with --no-session-log";
+    result.error =
+        "--stats requires a non-empty session log path; it can't be combined with "
+        "--no-session-log or an empty --session-log value";
     return result;
   }
 

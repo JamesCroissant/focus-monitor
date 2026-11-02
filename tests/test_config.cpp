@@ -88,6 +88,20 @@ void NoSessionLogCombinedWithStatsFlagIsRejected() {
   CHECK(!result.ok);
 }
 
+// An explicit empty path reaches the exact same "nothing to read back"
+// condition as --no-session-log does, without that flag ever being
+// passed -- the error must describe the actual condition (an empty
+// path), not just name --no-session-log as if that were the only way
+// to cause it.
+void StatsFlagCombinedWithAnEmptySessionLogPathIsRejected() {
+  const auto result = ParseArgs({"--stats", "--session-log", ""});
+  CHECK(!result.ok);
+  // Not just "--stats" (both the old and new wording would contain
+  // that) -- the message has to actually describe an empty path as the
+  // problem, since --no-session-log was never passed here.
+  CHECK(result.error.find("empty") != std::string::npos);
+}
+
 void SessionLogFlagMissingItsValueIsRejected() {
   const auto result = ParseArgs({"--session-log"});
   CHECK(!result.ok);
@@ -204,6 +218,7 @@ int main() {
   RUN_TEST(StatsFlagIsAccepted);
   RUN_TEST(StatsFlagCombinedWithNoSessionLogIsRejected);
   RUN_TEST(NoSessionLogCombinedWithStatsFlagIsRejected);
+  RUN_TEST(StatsFlagCombinedWithAnEmptySessionLogPathIsRejected);
   RUN_TEST(SessionLogFlagMissingItsValueIsRejected);
   RUN_TEST(BarePositionalArgumentIsTheCascadePath);
   RUN_TEST(CameraFlagOverridesTheDefault);
