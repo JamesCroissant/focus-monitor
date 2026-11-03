@@ -4,7 +4,6 @@
 #include <chrono>
 #include <iomanip>
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -13,6 +12,7 @@
 #include "cascade_resolver.h"
 #include "config.h"
 #include "consecutive_failure_guard.h"
+#include "display_format.h"
 #include "focus_tracker.h"
 #include "notifier.h"
 #include "session_logger.h"
@@ -158,15 +158,13 @@ int main(int argc, char** argv) {
                                             "s. Are you still there?");
     }
 
-    std::ostringstream status_line;
-    status_line << (tracker.focused() ? "Focused" : "Not focused") << " ("
-                << static_cast<int>(tracker.SecondsInCurrentState(now)) << "s)";
-    cv::putText(frame, status_line.str(), cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8,
+    const std::string status_line =
+        FormatStatusLine(tracker.focused(), static_cast<int>(tracker.SecondsInCurrentState(now)));
+    cv::putText(frame, status_line, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8,
                 tracker.focused() ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 0, 255), 2);
 
-    std::ostringstream ratio_line;
-    ratio_line << "Focus rate: " << static_cast<int>(tracker.FocusRatio() * 100) << "%";
-    cv::putText(frame, ratio_line.str(), cv::Point(10, 60), cv::FONT_HERSHEY_SIMPLEX, 0.7,
+    const std::string ratio_line = FormatRatioLine(tracker.FocusRatio());
+    cv::putText(frame, ratio_line, cv::Point(10, 60), cv::FONT_HERSHEY_SIMPLEX, 0.7,
                 cv::Scalar(255, 255, 255), 2);
 
     cv::imshow(window_name, frame);

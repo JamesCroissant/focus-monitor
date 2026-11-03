@@ -43,3 +43,6 @@ add_test(NAME cascade_resolver_test COMMAND cascade_resolver_test)
 
 add_executable(consecutive_failure_guard_test tests/test_consecutive_failure_guard.cpp)
 add_test(NAME consecutive_failure_guard_test COMMAND consecutive_failure_guard_test)
+
+add_executable(display_format_test tests/test_display_format.cpp)
+add_test(NAME display_format_test COMMAND display_format_test)
