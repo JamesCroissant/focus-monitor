@@ -93,6 +93,30 @@ void FocusRatioReflectsTimeSpentInEachState() {
   CHECK_NEAR(tracker.FocusRatio(), 22.0 / 32.0, 1e-6);
 }
 
+// main.cpp "closes out" a session before logging its summary by calling
+// Update(focused(), session_end) one last time -- passing the tracker's
+// own current state back in as face_seen, so the elapsed-time accounting
+// catches up to the real end of the session (not just the last frame
+// actually processed) without that call itself being allowed to toggle
+// anything. Both directions (closing out while focused, and while
+// unfocused) must be true no-ops for the state itself.
+void ClosingOutWithTheCurrentStateOnlyAdvancesTimeNeverTogglesState() {
+  FocusTracker focused_tracker(T(0), std::chrono::seconds(2));
+  CHECK(!focused_tracker.Update(/*face_seen=*/true, T(10)));
+  CHECK(!focused_tracker.Update(focused_tracker.focused(), T(20)));  // close-out
+  CHECK(focused_tracker.focused());
+  CHECK_NEAR(focused_tracker.FocusRatio(), 1.0, 1e-9);
+
+  FocusTracker unfocused_tracker(T(0), std::chrono::seconds(2));
+  CHECK(!unfocused_tracker.Update(/*face_seen=*/true, T(1)));
+  CHECK(unfocused_tracker.Update(/*face_seen=*/false, T(4)));  // now unfocused
+  CHECK(!unfocused_tracker.Update(unfocused_tracker.focused(), T(9)));  // close-out
+  CHECK(!unfocused_tracker.focused());
+  // [0, 4) credited focused (4s), [4, 9) credited unfocused (5s) --
+  // including the close-out's own [4, 9) span, not just [4, 4).
+  CHECK_NEAR(unfocused_tracker.FocusRatio(), 4.0 / 9.0, 1e-9);
+}
+
 }  // namespace
 
 int main() {
@@ -104,5 +128,6 @@ int main() {
   RUN_TEST(RegainsFocusAsSoonAsFaceReappears);
   RUN_TEST(SecondsInCurrentStateTracksTimeSinceTransition);
   RUN_TEST(FocusRatioReflectsTimeSpentInEachState);
+  RUN_TEST(ClosingOutWithTheCurrentStateOnlyAdvancesTimeNeverTogglesState);
   return test_framework::FailureCount() == 0 ? 0 : 1;
 }

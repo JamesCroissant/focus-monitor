@@ -184,8 +184,22 @@ int main(int argc, char** argv) {
   cv::destroyAllWindows();
 
   if (!config.session_log_path.empty()) {
-    const double duration_seconds =
-        std::chrono::duration<double>(FocusTracker::Clock::now() - session_start).count();
+    const auto session_end = FocusTracker::Clock::now();
+    // Closes out the tracker's own internal time accounting up through
+    // the actual end of the session, not just the last frame it happened
+    // to process -- otherwise focused_seconds_+unfocused_seconds_ (and
+    // so FocusRatio()) covers a slightly shorter window than
+    // duration_seconds below, which uses the real wall-clock gap. The
+    // gap between them is normally small (one frame's processing time,
+    // or up to ~300ms if the session ended via ConsecutiveFailureGuard
+    // giving up on the camera), but there's no reason the two numbers in
+    // the same logged record should describe different time spans when
+    // closing it is this cheap. Passing the tracker's own current
+    // focused() state as face_seen is a no-op for the focus state itself
+    // (see FocusTracker::Update()'s own logic) -- only the elapsed-time
+    // accounting advances.
+    tracker.Update(tracker.focused(), session_end);
+    const double duration_seconds = std::chrono::duration<double>(session_end - session_start).count();
     const SessionSummary summary{std::chrono::system_clock::now(), duration_seconds,
                                   tracker.FocusRatio()};
     if (!AppendSessionSummary(config.session_log_path, summary)) {

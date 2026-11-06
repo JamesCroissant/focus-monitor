@@ -168,6 +168,12 @@ ended_at,duration_seconds,focus_percent
 - `duration_seconds`: セッションの長さ(秒)。
 - `focus_percent`: セッション全体に占める Focused 時間の割合(0-100%)。
 
+`duration_seconds` と `focus_percent` は必ず同じ時間区間(セッション開始から
+実際の終了時刻まで)を指す。`focus_percent` の計算に使う内部の集計は実際には
+最後に処理したフレームの時点までしか進んでいないため、ログ書き込み直前に
+その時点の状態を保ったまま終了時刻まで集計を進めてから `duration_seconds`
+を算出している。
+
 ## テスト
 
 `FocusTracker`(グレースピリオド・集中率の計算)、`AlertScheduler`(アラートの
