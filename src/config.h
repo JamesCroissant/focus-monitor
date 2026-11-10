@@ -109,10 +109,21 @@ inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
       try {
         if (arg == "--camera") {
           size_t consumed = 0;
-          result.config.camera_index = std::stoi(*value, &consumed);
+          const int index = std::stoi(*value, &consumed);
           if (consumed != value->size()) {
             throw std::invalid_argument("trailing characters");
           }
+          // Device indices are 0-based; a negative one is never valid and,
+          // unlike an out-of-range-but-non-negative index, isn't even
+          // worth leaving for cv::VideoCapture to reject at open time with
+          // a generic "failed to open" -- this is the same kind of
+          // obviously-nonsensical-at-parse-time value --min-face-size/
+          // --width/--height already catch for their own (also
+          // necessarily non-negative) pixel counts.
+          if (index < 0) {
+            throw std::invalid_argument("negative camera index");
+          }
+          result.config.camera_index = index;
         } else {
           size_t consumed = 0;
           const double seconds = std::stod(*value, &consumed);

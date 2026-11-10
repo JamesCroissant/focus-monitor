@@ -118,7 +118,7 @@ cmake --build .
     [--min-face-size PX] [--width PX] [--height PX] [--stats]
 ```
 
-- `--camera N`: 使用するカメラのデバイス番号(既定 0)。
+- `--camera N`: 使用するカメラのデバイス番号(既定 0)。負の値はエラーになる。
 - `--width PX` / `--height PX`: カメラの解像度を指定する(既定はカメラ
   オープン時のデフォルト解像度のまま)。`cv::VideoCapture::set` へそのまま
   渡すベストエフォートのリクエストであり、ドライバ側が対応していない

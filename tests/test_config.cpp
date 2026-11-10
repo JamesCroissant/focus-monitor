@@ -167,6 +167,18 @@ void NumericValueWithTrailingGarbageIsRejected() {
   CHECK(!result.ok);
 }
 
+// Device indices are 0-based, so a negative one is never meaningful --
+// unlike an out-of-range-but-non-negative index (which cv::VideoCapture
+// itself already rejects at open time with a clear "failed to open"),
+// std::stoi happily parses "-1" with no exception at all, so nothing
+// stopped it from silently reaching main.cpp as a camera index before
+// this check existed.
+void NegativeCameraIndexIsRejected() {
+  const auto result = ParseArgs({"--camera", "-1"});
+  CHECK(!result.ok);
+  CHECK(result.error.find("--camera") != std::string::npos);
+}
+
 void SecondPositionalArgumentIsRejected() {
   const auto result = ParseArgs({"first.xml", "second.xml"});
   CHECK(!result.ok);
@@ -228,6 +240,7 @@ int main() {
   RUN_TEST(FlagMissingItsValueIsRejected);
   RUN_TEST(NonNumericCameraValueIsRejected);
   RUN_TEST(NumericValueWithTrailingGarbageIsRejected);
+  RUN_TEST(NegativeCameraIndexIsRejected);
   RUN_TEST(SecondPositionalArgumentIsRejected);
   RUN_TEST(NonFiniteTimingValueIsRejected);
   RUN_TEST(NegativeTimingValueIsRejected);
