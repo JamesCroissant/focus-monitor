@@ -132,10 +132,12 @@ cmake --build .
 - `--alert-interval SECONDS`: 最初のアラート以降、Not focused が続く間の
   繰り返し間隔(既定 30 秒)。
 
-  (`--grace-period`/`--alert-delay`/`--alert-interval` はいずれも 0 以上の
-  有限な数値のみ受け付ける。負の値や `nan`/`inf` は時間として意味を持たず、
-  内部で `std::chrono::duration` に変換する際未定義動作になり得るため、
-  指定した時点でエラーとして拒否する。)
+  (`--grace-period`/`--alert-delay`/`--alert-interval` はいずれも 0 以上
+  10^9 秒(約 31.7 年)以下の有限な数値のみ受け付ける。負の値や `nan`/`inf`
+  は時間として意味を持たず、極端に大きい値も同様に、内部で
+  `std::chrono::duration` に変換する際未定義動作になり得るため、
+  指定した時点でエラーとして拒否する。上限は実用上あり得る値より
+  はるかに大きく取っているだけで、通常の使用でこの上限に達することはない。)
 - `--session-log PATH`: セッション終了時にサマリ(CSV)を追記するファイルのパス
   (既定 `focus_sessions.csv`)。
 - `--no-session-log`: セッションログの記録を無効化する。

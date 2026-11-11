@@ -51,6 +51,14 @@ struct ParseArgsResult {
   Config config;
 };
 
+// Upper bound for --grace-period/--alert-delay/--alert-interval, in
+// seconds -- see its one use below for why this exists at all. ~31.7
+// years: absurdly larger than any value a real config would ever need,
+// but still comfortably inside the range a nanosecond-resolution,
+// int64_t-tick-count std::chrono::duration can represent (~292 years),
+// which is the actual property this has to hold.
+constexpr double kMaxTimingSeconds = 1e9;
+
 // Parses argv[1..] (pass argv+1, argc-1 worth of arguments, not argv[0]).
 //
 // Accepts at most one bare positional argument (the cascade path, matching
@@ -58,10 +66,10 @@ struct ParseArgsResult {
 // `--camera N`, `--grace-period SECONDS`, `--alert-delay SECONDS`,
 // `--alert-interval SECONDS`, `--session-log PATH`, `--no-session-log`,
 // `--min-face-size PX`, `--width PX`, `--height PX`, and `--stats`. On any error (unknown flag, missing value, a
-// value that doesn't parse as a number, a timing value that isn't finite
-// and non-negative, a non-positive face size, more than one positional
-// argument), returns `ok == false` with a human-readable `error` and an
-// unspecified `config`.
+// value that doesn't parse as a number, a timing value that isn't finite,
+// negative, or too large (see kMaxTimingSeconds), a non-positive face
+// size, more than one positional argument), returns `ok == false` with a
+// human-readable `error` and an unspecified `config`.
 inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
   ParseArgsResult result;
   bool have_positional = false;
@@ -136,9 +144,20 @@ inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
           // would otherwise flow into a std::chrono::duration_cast from
           // a double that can't be represented as a duration's integer
           // tick count, which is undefined behavior, not just "a weird
-          // value that happens to work out."
-          if (!std::isfinite(seconds) || seconds < 0.0) {
-            throw std::invalid_argument("not a finite, non-negative number");
+          // value that happens to work out." A huge-but-finite value
+          // hits the exact same undefined behavior for the exact same
+          // reason: main.cpp's Clock::duration is nanosecond-resolution
+          // with an int64_t tick count, so anything past roughly 2^63
+          // nanoseconds (~292 years) overflows that cast too --
+          // reproduced directly with -fsanitize=float-cast-overflow
+          // flagging "1e+29 is outside the range of representable
+          // values of type 'long int'" for duration_cast's internal
+          // double-to-tick-count conversion. kMaxTimingSeconds is
+          // nowhere near that boundary (it only has to be larger than
+          // any value a real config would ever use), just comfortably
+          // on the safe side of it.
+          if (!std::isfinite(seconds) || seconds < 0.0 || seconds > kMaxTimingSeconds) {
+            throw std::invalid_argument("not a finite number in a sane range");
           }
           if (arg == "--grace-period") {
             result.config.grace_period_seconds = seconds;

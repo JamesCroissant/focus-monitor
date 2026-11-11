@@ -216,6 +216,18 @@ void ZeroTimingValueIsAccepted() {
   CHECK_NEAR(result.config.alert_interval_seconds, 0.0, 1e-9);
 }
 
+// A huge-but-finite value passes std::isfinite() just like a sane one
+// does, but main.cpp's SecondsToDuration() feeds it straight into a
+// std::chrono::duration_cast to a nanosecond-resolution, int64_t-backed
+// duration -- a value this large overflows that conversion the same way
+// (undefined behavior) that NonFiniteTimingValueIsRejected's nan/inf
+// values would, just without std::isfinite() around to catch it.
+void TimingValueExceedingSaneRangeIsRejected() {
+  CHECK(!ParseArgs({"--grace-period", "1e20"}).ok);
+  CHECK(!ParseArgs({"--alert-delay", "1e20"}).ok);
+  CHECK(!ParseArgs({"--alert-interval", "1e20"}).ok);
+}
+
 }  // namespace
 
 int main() {
@@ -245,5 +257,6 @@ int main() {
   RUN_TEST(NonFiniteTimingValueIsRejected);
   RUN_TEST(NegativeTimingValueIsRejected);
   RUN_TEST(ZeroTimingValueIsAccepted);
+  RUN_TEST(TimingValueExceedingSaneRangeIsRejected);
   return test_framework::FailureCount() == 0 ? 0 : 1;
 }
