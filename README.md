@@ -183,7 +183,10 @@ ended_at,duration_seconds,focus_percent
 `FocusTracker`(グレースピリオド・集中率の計算)、`AlertScheduler`(アラートの
 発火タイミング)、`Config`(コマンドライン引数のパース)、`session_logger`
 (セッションサマリの CSV フォーマットとファイル追記、および `--stats` が使う
-`ReadSessionLogStats` による集計・長さによる重み付け平均・壊れた行のスキップ)、
+`ReadSessionLogStats` による集計・長さによる重み付け平均・壊れた行のスキップ。
+数値として全く読めない行だけでなく、数値の後に余分な文字列が続く行(`std::stod`
+は先頭の数値部分だけを読み取って残りを無視してしまうため)も壊れた行として
+スキップされることを含む)、
 `EscapeForShell`
 (`notify-send` コマンド文字列へ埋め込む前のシェルエスケープ)、`ShutdownFlag`
 (`SIGINT`/`SIGTERM` ハンドラが実際にフラグを立てること)、`ResolveCascadePath`

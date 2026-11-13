@@ -169,6 +169,31 @@ void MalformedLineIsSkippedRatherThanAborting() {
   std::filesystem::remove(path);
 }
 
+// std::stod only parses a leading numeric prefix and silently ignores
+// whatever comes after it -- "50.0garbage" "succeeds" as 50.0 with no
+// exception at all, so this line would otherwise slip past
+// MalformedLineIsSkippedRatherThanAborting's style of check (which only
+// covers a field that fails to parse as a number *at all*) without
+// actually being a clean, trustworthy field. Must be rejected the same
+// way config.h's CLI parsing already rejects a numeric flag value with
+// trailing garbage (e.g. "2abc" for --camera).
+void LineWithTrailingGarbageAfterANumberIsSkipped() {
+  const std::filesystem::path path =
+      std::filesystem::temp_directory_path() / "focus_monitor_test_stats_trailing_garbage.csv";
+  std::ofstream out(path);
+  out << "ended_at,duration_seconds,focus_percent\n"
+      << "2024-01-02T03:04:05Z,10.0,50.0garbage\n"
+      << "2024-01-02T03:04:05Z,20.0,50.0\n";
+  out.close();
+
+  const auto stats = ReadSessionLogStats(path.string());
+  CHECK(stats.has_value());
+  CHECK(stats->session_count == 1);
+  CHECK_NEAR(stats->total_duration_seconds, 20.0, 1e-9);
+
+  std::filesystem::remove(path);
+}
+
 }  // namespace
 
 int main() {
@@ -183,5 +208,6 @@ int main() {
   RUN_TEST(StatsAverageFocusPercentIsDurationWeighted);
   RUN_TEST(StatsWithOnlyZeroDurationSessionsAveragesToZero);
   RUN_TEST(MalformedLineIsSkippedRatherThanAborting);
+  RUN_TEST(LineWithTrailingGarbageAfterANumberIsSkipped);
   return test_framework::FailureCount() == 0 ? 0 : 1;
 }

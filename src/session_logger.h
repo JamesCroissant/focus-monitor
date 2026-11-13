@@ -92,8 +92,26 @@ inline std::optional<SessionLogStats> ReadSessionLogStats(const std::string& pat
       continue;
     }
     try {
-      const double duration = std::stod(line.substr(first_comma + 1, second_comma - first_comma - 1));
-      const double focus_percent = std::stod(line.substr(second_comma + 1));
+      const std::string duration_field = line.substr(first_comma + 1, second_comma - first_comma - 1);
+      const std::string focus_percent_field = line.substr(second_comma + 1);
+      // std::stod only parses a leading numeric prefix and otherwise
+      // ignores the rest of the string -- "50.0garbage" "succeeds" as
+      // 50.0 with no exception at all, silently accepting a line this
+      // function's own job is to treat as malformed (the same
+      // trailing-garbage case config.h's CLI parsing already rejects
+      // for its own numeric flags, e.g. "2abc" for --camera). Checking
+      // that the whole field was consumed catches that, the same way
+      // config.h's `consumed != value.size()` check does.
+      std::size_t duration_consumed = 0;
+      const double duration = std::stod(duration_field, &duration_consumed);
+      if (duration_consumed != duration_field.size()) {
+        continue;
+      }
+      std::size_t focus_percent_consumed = 0;
+      const double focus_percent = std::stod(focus_percent_field, &focus_percent_consumed);
+      if (focus_percent_consumed != focus_percent_field.size()) {
+        continue;
+      }
       ++stats.session_count;
       stats.total_duration_seconds += duration;
       weighted_focus_sum += duration * focus_percent;
