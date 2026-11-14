@@ -99,7 +99,8 @@ cmake --build .
 
 ### 終了コード
 
-- `0`: `q`/ESC、`Ctrl-C`/`kill` のいずれによる終了でも、正常終了として `0`。
+- `0`: 正常終了。`q`/ESC、`Ctrl-C`/`kill` による終了はもちろん、`--help`/`-h`
+  や `--stats` のようにカメラを開かずに完了する実行も含む。
 - `1`: 起動時のエラー(引数のパース失敗、カスケードファイルの読み込み失敗、
   カメラのオープン失敗)。
 - `2`: セッション中にカメラが切断された(連続空フレームのしきい値を超えた)
@@ -117,7 +118,7 @@ cmake --build .
     [--alert-delay SECONDS] \
     [--alert-interval SECONDS] \
     [--session-log PATH] [--no-session-log] \
-    [--min-face-size PX] [--width PX] [--height PX] [--stats]
+    [--min-face-size PX] [--width PX] [--height PX] [--stats] [--help]
 ```
 
 - `--camera N`: 使用するカメラのデバイス番号(既定 0)。負の値はエラーになる。
@@ -157,6 +158,10 @@ cmake --build .
   Total tracked time: 8640s
   Average focus rate: 78.3%
   ```
+- `--help`/`-h`: 使用方法を標準出力に表示して終了する(終了コード `0`)。
+  コマンドライン上のどこに書かれていても、他のオプションの妥当性に関わらず
+  常に優先される(例: `--camera` に値を渡さずに `--help` も渡した場合でも、
+  値不足のエラーではなく使用方法が表示される)。
 
 ### セッションログ (`focus_sessions.csv`)
 

@@ -47,6 +47,12 @@ struct Config {
 
 struct ParseArgsResult {
   bool ok = true;
+  // Set when the caller passed --help/-h. Takes priority over every
+  // other argument -- main.cpp checks this before looking at `ok` or
+  // `config` at all, the same way any other command-line tool treats
+  // --help as an immediate, always-available request rather than one
+  // more flag that has to coexist with whatever else was typed.
+  bool help_requested = false;
   std::string error;
   Config config;
 };
@@ -70,8 +76,23 @@ constexpr double kMaxTimingSeconds = 1e9;
 // negative, or too large (see kMaxTimingSeconds), a non-positive face
 // size, more than one positional argument), returns `ok == false` with a
 // human-readable `error` and an unspecified `config`.
+//
+// --help/-h anywhere in `args` short-circuits all of the above: returns
+// immediately with `help_requested == true` and `ok == true`, without
+// validating (or even looking at) anything else -- the same way every
+// other command-line tool lets --help win regardless of what else was
+// typed alongside it, rather than first complaining about an unrelated
+// bad flag or a missing value.
 inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
   ParseArgsResult result;
+
+  for (const std::string& arg : args) {
+    if (arg == "--help" || arg == "-h") {
+      result.help_requested = true;
+      return result;
+    }
+  }
+
   bool have_positional = false;
 
   auto next_value = [&](size_t& i, const std::string& flag) -> std::optional<std::string> {

@@ -6,6 +6,7 @@ namespace {
 void DefaultsWhenNoArgsGiven() {
   const auto result = ParseArgs({});
   CHECK(result.ok);
+  CHECK(!result.help_requested);
   CHECK(result.config.cascade_path.empty());
   CHECK(result.config.camera_index == 0);
   CHECK_NEAR(result.config.grace_period_seconds, 2.0, 1e-9);
@@ -185,6 +186,30 @@ void SecondPositionalArgumentIsRejected() {
   CHECK(result.error.find("second.xml") != std::string::npos);
 }
 
+void LongHelpFlagSetsHelpRequested() {
+  const auto result = ParseArgs({"--help"});
+  CHECK(result.ok);
+  CHECK(result.help_requested);
+}
+
+void ShortHelpFlagSetsHelpRequested() {
+  const auto result = ParseArgs({"-h"});
+  CHECK(result.ok);
+  CHECK(result.help_requested);
+}
+
+// --help wins regardless of what else is on the command line -- an
+// otherwise-invalid flag before or after it must not stop help from
+// being recognized, the same way every other command-line tool lets
+// --help take priority over the rest of argv instead of first
+// complaining about something unrelated.
+void HelpFlagTakesPriorityOverAnInvalidFlag() {
+  CHECK(ParseArgs({"--not-a-real-flag", "--help"}).help_requested);
+  CHECK(ParseArgs({"--help", "--not-a-real-flag"}).help_requested);
+  CHECK(ParseArgs({"--camera"}).ok == false);  // sanity: normally an error
+  CHECK(ParseArgs({"--camera", "--help"}).help_requested);
+}
+
 // std::stod parses "nan"/"inf"/"-inf" as a clean, no-exception success --
 // none of them mean anything as a duration, and letting one through would
 // eventually hit a std::chrono::duration_cast from a double that can't be
@@ -254,6 +279,9 @@ int main() {
   RUN_TEST(NumericValueWithTrailingGarbageIsRejected);
   RUN_TEST(NegativeCameraIndexIsRejected);
   RUN_TEST(SecondPositionalArgumentIsRejected);
+  RUN_TEST(LongHelpFlagSetsHelpRequested);
+  RUN_TEST(ShortHelpFlagSetsHelpRequested);
+  RUN_TEST(HelpFlagTakesPriorityOverAnInvalidFlag);
   RUN_TEST(NonFiniteTimingValueIsRejected);
   RUN_TEST(NegativeTimingValueIsRejected);
   RUN_TEST(ZeroTimingValueIsAccepted);

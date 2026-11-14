@@ -42,19 +42,35 @@ constexpr auto kEmptyFrameRetryDelay = std::chrono::milliseconds(10);
 // ...) has no way to tell the two apart from the exit code alone otherwise.
 constexpr int kCameraDisconnectedExitCode = 2;
 
+// Shared by the --help path and the argument-error path, so the two
+// never list a different set of flags from each other -- the same risk
+// README.md's own CLI-configurability bullet already went stale from
+// once, just for this usage string instead of that paragraph.
+void PrintUsage(const char* program_name, std::ostream& out) {
+  out << "Usage: " << program_name
+      << " [cascade_path] [--camera N] [--grace-period SECONDS]"
+         " [--alert-delay SECONDS] [--alert-interval SECONDS]"
+         " [--session-log PATH] [--no-session-log]"
+         " [--min-face-size PX] [--width PX] [--height PX] [--stats]"
+         " [--help]"
+      << std::endl;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
   const std::vector<std::string> raw_args(argv + 1, argv + argc);
   const ParseArgsResult parsed = ParseArgs(raw_args);
+  if (parsed.help_requested) {
+    // Requesting help is not an error -- stdout and exit 0, not stderr
+    // and exit 1, matching how every other command-line tool treats
+    // --help rather than looking like the program just failed.
+    PrintUsage(argv[0], std::cout);
+    return 0;
+  }
   if (!parsed.ok) {
     std::cerr << "Error: " << parsed.error << std::endl;
-    std::cerr << "Usage: " << argv[0]
-              << " [cascade_path] [--camera N] [--grace-period SECONDS]"
-                 " [--alert-delay SECONDS] [--alert-interval SECONDS]"
-                 " [--session-log PATH] [--no-session-log]"
-                 " [--min-face-size PX] [--width PX] [--height PX] [--stats]"
-              << std::endl;
+    PrintUsage(argv[0], std::cerr);
     return 1;
   }
   const Config& config = parsed.config;
