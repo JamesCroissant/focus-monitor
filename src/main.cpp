@@ -8,10 +8,13 @@
 #include <thread>
 #include <vector>
 
+#include <cstdlib>
+
 #include "alert_scheduler.h"
 #include "cascade_resolver.h"
 #include "config.h"
 #include "consecutive_failure_guard.h"
+#include "display_availability.h"
 #include "display_format.h"
 #include "focus_tracker.h"
 #include "notifier.h"
@@ -87,6 +90,22 @@ int main(int argc, char** argv) {
     std::cout << "Average focus rate: " << std::fixed << std::setprecision(1)
                << stats->average_focus_percent << "%" << std::endl;
     return 0;
+  }
+
+  // Checked before anything else that needs a window (cascade/camera can
+  // still fail their own way below, but there's no point getting that
+  // far): cv::namedWindow()/cv::imshow() don't fail this with a
+  // catchable C++ exception when no display is reachable -- OpenCV's
+  // Qt/GTK backend aborts the whole process instead (confirmed directly:
+  // Qt's qFatal calls abort(), a signal, not a throw). Exactly what
+  // happens running from a systemd unit with no desktop session, or over
+  // plain SSH without `-X` -- the same headless deployment this
+  // project's own exit-code design already exists to support.
+  if (!DisplayAvailable(std::getenv("DISPLAY"), std::getenv("WAYLAND_DISPLAY"))) {
+    std::cerr << "Error: no display available (DISPLAY and WAYLAND_DISPLAY are both unset). "
+                 "focus-monitor needs a GUI session to show its preview window."
+              << std::endl;
+    return 1;
   }
 
   const auto& default_search_paths = DefaultCascadeSearchPaths();

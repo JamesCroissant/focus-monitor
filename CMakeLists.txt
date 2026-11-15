@@ -46,3 +46,6 @@ add_test(NAME consecutive_failure_guard_test COMMAND consecutive_failure_guard_t
 
 add_executable(display_format_test tests/test_display_format.cpp)
 add_test(NAME display_format_test COMMAND display_format_test)
+
+add_executable(display_availability_test tests/test_display_availability.cpp)
+add_test(NAME display_availability_test COMMAND display_availability_test)

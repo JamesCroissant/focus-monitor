@@ -55,6 +55,12 @@ C++ / OpenCV を用いて、カメラ映像から人の顔を検出し、パソ�
   セッション履歴(セッション数・合計追跡時間・長さで重み付けした平均集中率)を
   集計して表示できる(`src/session_logger.h` の `ReadSessionLogStats`)。
   カメラは一切開かない。
+- `DISPLAY`/`WAYLAND_DISPLAY` のいずれも未設定のときは、プレビューウィンドウを
+  開く前にエラーを出して終了コード `1` で終了する(`src/display_availability.h`)。
+  これが無いと、systemd のユニットやデスクトップセッションの無い SSH 接続から
+  起動した場合、OpenCV の Qt/GTK バックエンドが `cv::namedWindow` 内で
+  catch 不可能な `abort()` を呼んでクラッシュしてしまう(C++ の例外ではなく
+  シグナルなので、`main` 側の try/catch では捕まえられない)。
 
 ## 必要環境
 
@@ -101,8 +107,8 @@ cmake --build .
 
 - `0`: 正常終了。`q`/ESC、`Ctrl-C`/`kill` による終了はもちろん、`--help`/`-h`
   や `--stats` のようにカメラを開かずに完了する実行も含む。
-- `1`: 起動時のエラー(引数のパース失敗、カスケードファイルの読み込み失敗、
-  カメラのオープン失敗)。
+- `1`: 起動時のエラー(引数のパース失敗、ディスプレイが利用できない、
+  カスケードファイルの読み込み失敗、カメラのオープン失敗)。
 - `2`: セッション中にカメラが切断された(連続空フレームのしきい値を超えた)
   ことによる終了。`0`/`1` とコードを分けているのは、systemd の
   `Restart=on-failure`＋`SuccessExitStatus` や監視スクリプトなどから、
@@ -198,7 +204,9 @@ ended_at,duration_seconds,focus_percent
 (カスケードファイルの探索順)、`ConsecutiveFailureGuard`(連続失敗回数のしきい値
 判定)、`display_format`(画面オーバーレイの2行 -- `FormatStatusLine`/
 `FormatRatioLine` -- のフォーマット。パーセント表示は四捨五入ではなく切り捨て
-であることも含む)は、カメラや OpenCV に依存しない純粋なロジックなので、外部テスト
+であることも含む)、`DisplayAvailable`(`DISPLAY`/`WAYLAND_DISPLAY` のどちらかが
+空でない値で設定されていれば利用可能と判定するロジック)は、カメラや OpenCV に
+依存しない純粋なロジックなので、外部テスト
 フレームワークを追加せず、`tests/test_framework.h` の小さな自作ハーネスと
 CTest だけでテストしている。もともと `ResolveCascadePath` は
 `cv::utils::fs::exists` を使っていたため main.cpp 内に未テストのまま残って
