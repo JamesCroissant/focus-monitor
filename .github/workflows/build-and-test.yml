@@ -24,3 +24,30 @@ jobs:
       - name: Test
         working-directory: build
         run: ctest --output-on-failure
+
+      # ctest above only ever runs the pure-logic unit test executables --
+      # main.cpp's own control flow (the actual order --help/--stats/the
+      # display check/the cascade load/the camera open run in) has no
+      # coverage of its own anywhere, since it's never been exercised by
+      # calling the real binary. This CI runner is itself headless (no
+      # DISPLAY/WAYLAND_DISPLAY) *and* has no camera, so a bare no-args
+      # run would exit 1 either way (the display check or, failing that,
+      # the camera-open check) -- checking the exit code alone can't tell
+      # those apart, so this also greps stderr for the display check's
+      # own message specifically, to confirm *that* check is what ran and
+      # caught it, not that something merely failed for any reason.
+      - name: Smoke-test the real binary's early exit paths
+        working-directory: build
+        run: |
+          ./focus_monitor --help
+          echo "--help exited 0 as expected"
+          set +e
+          output="$(./focus_monitor 2>&1)"
+          status=$?
+          set -e
+          if [ "$status" -ne 1 ] || ! grep -q "no display available" <<< "$output"; then
+            echo "Expected exit code 1 with a 'no display available' message, got status $status and:" >&2
+            echo "$output" >&2
+            exit 1
+          fi
+          echo "no-display run exited 1 with the expected message"
