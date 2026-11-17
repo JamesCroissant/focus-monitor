@@ -1,0 +1,35 @@
+[Unit]
+Description=focus-monitor webcam focus tracker
+# A GUI preview window needs the user's own graphical session (DISPLAY/
+# WAYLAND_DISPLAY) -- this is a *user* unit (~/.config/systemd/user/),
+# not a system one, specifically so it inherits that session's
+# environment instead of running with none at all.
+After=graphical-session.target
+
+[Service]
+Type=simple
+# Adjust to wherever this repo is actually checked out -- WorkingDirectory
+# matters here, not just ExecStart's own path: focus-monitor resolves its
+# bundled cascade file (data/haarcascades/...) relative to the current
+# directory (see README's "実行方法" section), so launching it from
+# anywhere else falls back to searching the system's own OpenCV install
+# paths instead.
+WorkingDirectory=%h/focus-monitor
+ExecStart=%h/focus-monitor/build/focus_monitor
+
+# README's own "終了コード" section explains the three exit codes this is
+# built around: 0 (q/ESC, Ctrl-C/kill, --help, --stats -- the user's own
+# intentional exit, or a request that never even opens the camera) and 1
+# (a startup error: bad arguments, no display available, the cascade
+# file failing to load, the camera failing to open) are both something
+# retrying won't fix on its own, so both count as "success" here via
+# SuccessExitStatus -- leaving exit code 2 (the camera disconnecting
+# mid-session) as the one case Restart=on-failure actually retries,
+# exactly the "Restart=on-failure + SuccessExitStatus" combination
+# README's own exit-code section names as this project's intended use.
+Restart=on-failure
+RestartSec=5
+SuccessExitStatus=1
+
+[Install]
+WantedBy=graphical-session.target

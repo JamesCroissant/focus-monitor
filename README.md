@@ -118,9 +118,30 @@ cmake --build .
   ことによる終了。`0`/`1` とコードを分けているのは、systemd の
   `Restart=on-failure`＋`SuccessExitStatus` や監視スクリプトなどから、
   「ユーザーが意図して終了した」場合と区別して自動再起動などの対応を
-  できるようにするため。
+  できるようにするため。実際にこの組み合わせを使った systemd ユーザーユニットの
+  サンプルを `packaging/systemd/focus-monitor.service` に用意している
+  (`SuccessExitStatus=1` により、再起動が必要なのは終了コード `2` の
+  ときだけになる)。`systemd-analyze verify` で構文は確認済み。
 
-以下のオプションで既定値を変更できる(カスケードパスの指定は従来通り第1引数):
+### systemd ユーザーユニットでの自動実行(任意)
+
+GUI のプレビューウィンドウを表示するにはログインセッション自身の
+`DISPLAY`/`WAYLAND_DISPLAY` が必要なため、システム全体のユニットではなく
+ユーザーユニット(`~/.config/systemd/user/`)として登録する。
+
+```sh
+cp packaging/systemd/focus-monitor.service ~/.config/systemd/user/
+# ExecStart / WorkingDirectory のパスを実際のチェックアウト先に合わせて編集
+systemctl --user enable --now focus-monitor.service
+```
+
+`DISPLAY`/`WAYLAND_DISPLAY` がそのユーザーセッションに自動的には渡っていない
+環境(ログインマネージャの設定によってはよくある)では、`focus_monitor` は
+クラッシュするのではなく上記の「ディスプレイが利用できない」エラーで
+終了コード `1` を返す。`SuccessExitStatus=1` によりこれは「成功」扱いとなり、
+再起動を無限に繰り返すことはない。
+
+
 
 ```sh
 ./build/focus_monitor [cascade_path] \
