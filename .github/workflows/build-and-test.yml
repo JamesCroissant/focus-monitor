@@ -51,3 +51,46 @@ jobs:
             exit 1
           fi
           echo "no-display run exited 1 with the expected message"
+
+      # --stats is the one other branch of main.cpp that, like --help and
+      # the no-display case above, returns before ever touching a camera
+      # or a display -- but unlike those two, it had no coverage here at
+      # all. ReadSessionLogStats() itself (the aggregation logic) is
+      # already unit-tested in tests/test_session_logger.cpp, but main.cpp's
+      # own use of it -- the "No session log found" error path, and the
+      # exact three lines of formatted output README.md documents -- was
+      # never exercised through the real binary either way.
+      - name: Smoke-test the real binary's --stats path
+        working-directory: build
+        run: |
+          set +e
+          output="$(./focus_monitor --stats --session-log /tmp/focus_monitor_ci_missing_log.csv 2>&1)"
+          status=$?
+          set -e
+          if [ "$status" -ne 1 ] || ! grep -q "No session log found" <<< "$output"; then
+            echo "Expected exit code 1 with a 'No session log found' message for a missing log, got status $status and:" >&2
+            echo "$output" >&2
+            exit 1
+          fi
+          echo "--stats with no log file exited 1 with the expected message"
+
+          log_path="$(mktemp /tmp/focus_monitor_ci_stats_log.XXXXXX.csv)"
+          cat > "$log_path" <<'CSV'
+ended_at,duration_seconds,focus_percent
+2026-01-01T00:00:00Z,100.0,50.0
+2026-01-01T01:00:00Z,300.0,90.0
+CSV
+          expected="Sessions recorded: 2
+Total tracked time: 400s
+Average focus rate: 80.0%"
+          output="$(./focus_monitor --stats --session-log "$log_path")"
+          status=$?
+          rm -f "$log_path"
+          if [ "$status" -ne 0 ] || [ "$output" != "$expected" ]; then
+            echo "Expected exit code 0 with the duration-weighted summary below, got status $status and:" >&2
+            echo "$output" >&2
+            echo "--- expected ---" >&2
+            echo "$expected" >&2
+            exit 1
+          fi
+          echo "--stats with a real log file printed the expected summary"
