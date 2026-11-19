@@ -8,6 +8,18 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# Unlike os-practice (this account's other from-scratch project, whose
+# Makefile has carried -Wall -Wextra since its very first commit), this
+# project had no compiler warnings enabled at all -- not even -Wall --
+# despite every one of its own commit messages already treating "no new
+# compiler warning" as part of what a change has to verify. Applied
+# globally (before any add_executable below) so focus_monitor and every
+# test executable get it, not just one target. Confirmed the existing
+# codebase (main.cpp, every src/*.h, every tests/*.cpp) already builds
+# clean under it -- this is a safety net for future changes, not a fix
+# for a warning that already existed.
+add_compile_options(-Wall -Wextra)
+
 find_package(OpenCV REQUIRED)
 
 add_executable(focus_monitor src/main.cpp)
