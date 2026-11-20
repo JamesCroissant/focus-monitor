@@ -50,6 +50,50 @@ void NonPositiveWidthOrHeightIsRejected() {
   CHECK(!ParseArgs({"--height", "-1"}).ok);
 }
 
+// detectMultiScale's scaleFactor/minNeighbors were hardcoded in main.cpp
+// until now -- same gap as --min-face-size's own default above, just for
+// the other two parameters that tune detection sensitivity.
+void ScaleFactorAndMinNeighborsDefaultToTheirPreviousHardcodedValues() {
+  const auto result = ParseArgs({});
+  CHECK(result.ok);
+  CHECK_NEAR(result.config.scale_factor, 1.1, 1e-9);
+  CHECK(result.config.min_neighbors == 4);
+}
+
+void ScaleFactorAndMinNeighborsFlagsOverrideTheDefault() {
+  const auto result = ParseArgs({"--scale-factor", "1.2", "--min-neighbors", "6"});
+  CHECK(result.ok);
+  CHECK_NEAR(result.config.scale_factor, 1.2, 1e-9);
+  CHECK(result.config.min_neighbors == 6);
+}
+
+// A scale factor at or below 1.0 would shrink the search image by
+// nothing (or grow it) on every pyramid level detectMultiScale scans --
+// the scan never progresses, not just an unwise setting.
+void ScaleFactorAtOrBelowOneIsRejected() {
+  CHECK(!ParseArgs({"--scale-factor", "1.0"}).ok);
+  CHECK(!ParseArgs({"--scale-factor", "0.9"}).ok);
+  CHECK(!ParseArgs({"--scale-factor", "-1.1"}).ok);
+}
+
+// Same non-finite values NonFiniteTimingValueIsRejected already rejects
+// for the timing flags, just for --scale-factor -- std::stod parses all
+// three as a clean, no-exception "success" otherwise.
+void NonFiniteScaleFactorIsRejected() {
+  CHECK(!ParseArgs({"--scale-factor", "nan"}).ok);
+  CHECK(!ParseArgs({"--scale-factor", "inf"}).ok);
+  CHECK(!ParseArgs({"--scale-factor", "-inf"}).ok);
+}
+
+void NonPositiveMinNeighborsIsRejected() {
+  CHECK(!ParseArgs({"--min-neighbors", "0"}).ok);
+  CHECK(!ParseArgs({"--min-neighbors", "-2"}).ok);
+}
+
+void ScaleFactorWithTrailingGarbageIsRejected() {
+  CHECK(!ParseArgs({"--scale-factor", "1.2abc"}).ok);
+}
+
 void SessionLogFlagOverridesTheDefaultPath() {
   const auto result = ParseArgs({"--session-log", "/tmp/my_sessions.csv"});
   CHECK(result.ok);
@@ -261,6 +305,12 @@ int main() {
   RUN_TEST(NonPositiveMinFaceSizeIsRejected);
   RUN_TEST(WidthAndHeightFlagsOverrideTheDefault);
   RUN_TEST(NonPositiveWidthOrHeightIsRejected);
+  RUN_TEST(ScaleFactorAndMinNeighborsDefaultToTheirPreviousHardcodedValues);
+  RUN_TEST(ScaleFactorAndMinNeighborsFlagsOverrideTheDefault);
+  RUN_TEST(ScaleFactorAtOrBelowOneIsRejected);
+  RUN_TEST(NonFiniteScaleFactorIsRejected);
+  RUN_TEST(NonPositiveMinNeighborsIsRejected);
+  RUN_TEST(ScaleFactorWithTrailingGarbageIsRejected);
   RUN_TEST(SessionLogFlagOverridesTheDefaultPath);
   RUN_TEST(NoSessionLogFlagClearsThePath);
   RUN_TEST(StatsFlagDefaultsToFalse);

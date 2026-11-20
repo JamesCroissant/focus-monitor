@@ -50,6 +50,11 @@ C++ / OpenCV を用いて、カメラ映像から人の顔を検出し、パソ�
 - カメラの解像度自体も `--width`/`--height` で指定できる(既定はカメラの
   デフォルト解像度のまま)。上記の `--min-face-size` の最適値が解像度に
   依存する以上、解像度そのものを変更する手段が無いのは片手落ちだった。
+- `detectMultiScale` のもう2つのパラメータ、`scaleFactor`(`--scale-factor`、
+  既定 1.1)と `minNeighbors`(`--min-neighbors`、既定 4)もコマンドラインから
+  変更できる。これまで main.cpp 内に固定値として埋め込まれていたが、
+  `--min-face-size` と同じ理由(カメラ・照明条件によって最適値が変わる)で
+  再コンパイルなしに調整する手段が無いのは同じ片手落ちだった。
 - カメラから一時的に空フレームを受け取っても即座には終了せず、最大30回連続
   (`src/consecutive_failure_guard.h`、既定の再試行間隔10msで約300ms相当)まで
   再試行してから本当にカメラが切断されたと判断する。健全なカメラでも起こり得る
@@ -152,7 +157,8 @@ systemctl --user enable --now focus-monitor.service
     [--alert-delay SECONDS] \
     [--alert-interval SECONDS] \
     [--session-log PATH] [--no-session-log] \
-    [--min-face-size PX] [--width PX] [--height PX] [--stats] [--help]
+    [--min-face-size PX] [--width PX] [--height PX] \
+    [--scale-factor FACTOR] [--min-neighbors N] [--stats] [--help]
 ```
 
 - `--camera N`: 使用するカメラのデバイス番号(既定 0)。負の値はエラーになる。
@@ -180,6 +186,14 @@ systemctl --user enable --now focus-monitor.service
 - `--no-session-log`: セッションログの記録を無効化する。
 - `--min-face-size PX`: 顔検出の最小サイズ(ピクセル、正方形の一辺、既定 60)。
   0 以下の値はエラーになる。
+- `--scale-factor FACTOR`: `detectMultiScale` が探索ウィンドウを縮小していく
+  倍率(既定 1.1)。値を大きくするほど探索するスケールの段階数が減り検出は
+  速くなるが、サイズが段階の間に収まる顔を見落としやすくなる。1.0 以下の値は
+  探索が縮小しなくなる(進行しなくなる)ため、有限かつ 1.0 より大きい値のみ
+  受け付ける。
+- `--min-neighbors N`: `detectMultiScale` が1つの候補領域を実際の顔として
+  採用するために必要な近傍矩形数(既定 4)。値を大きくするほど誤検出は
+  減るが検出漏れが増えやすくなる。1 以上の整数のみ受け付ける。
 - `--stats`: カメラを一切開かず、`--session-log`(既定 `focus_sessions.csv`)の
   これまでの履歴を集計して表示し、終了する。セッション数・合計追跡時間・
   平均集中率(各セッションの長さで重み付けした平均。10分@90%のセッションは

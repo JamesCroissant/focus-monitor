@@ -54,7 +54,8 @@ void PrintUsage(const char* program_name, std::ostream& out) {
       << " [cascade_path] [--camera N] [--grace-period SECONDS]"
          " [--alert-delay SECONDS] [--alert-interval SECONDS]"
          " [--session-log PATH] [--no-session-log]"
-         " [--min-face-size PX] [--width PX] [--height PX] [--stats]"
+         " [--min-face-size PX] [--width PX] [--height PX]"
+         " [--scale-factor FACTOR] [--min-neighbors N] [--stats]"
          " [--help]"
       << std::endl;
 }
@@ -173,7 +174,7 @@ int main(int argc, char** argv) {
     cv::equalizeHist(gray, gray);
 
     faces.clear();
-    face_cascade.detectMultiScale(gray, faces, 1.1, 4, 0,
+    face_cascade.detectMultiScale(gray, faces, config.scale_factor, config.min_neighbors, 0,
                                    cv::Size(config.min_face_size_px, config.min_face_size_px));
 
     for (const auto& face : faces) {

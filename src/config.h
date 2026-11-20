@@ -39,6 +39,15 @@ struct Config {
   // camera's default.
   int camera_width_px = 0;
   int camera_height_px = 0;
+  // detectMultiScale's own scaleFactor and minNeighbors parameters,
+  // passed straight through as its 3rd/4th arguments. Both were
+  // hardcoded in main.cpp until now, with the exact same problem
+  // min_face_size_px's own comment above already names for that value:
+  // the right tradeoff depends on the camera and lighting a given
+  // setup actually has, and there was no way to adjust either without
+  // recompiling.
+  double scale_factor = 1.1;
+  int min_neighbors = 4;
   // --stats: print a summary of session_log_path's history and exit,
   // instead of opening the camera at all (see session_logger.h's
   // ReadSessionLogStats).
@@ -71,11 +80,14 @@ constexpr double kMaxTimingSeconds = 1e9;
 // the original "./focus_monitor [cascade_path]" usage) alongside
 // `--camera N`, `--grace-period SECONDS`, `--alert-delay SECONDS`,
 // `--alert-interval SECONDS`, `--session-log PATH`, `--no-session-log`,
-// `--min-face-size PX`, `--width PX`, `--height PX`, and `--stats`. On any error (unknown flag, missing value, a
+// `--min-face-size PX`, `--width PX`, `--height PX`, `--scale-factor FACTOR`,
+// `--min-neighbors N`, and `--stats`. On any error (unknown flag, missing value, a
 // value that doesn't parse as a number, a timing value that isn't finite,
 // negative, or too large (see kMaxTimingSeconds), a non-positive face
-// size, more than one positional argument), returns `ok == false` with a
-// human-readable `error` and an unspecified `config`.
+// size, a scale factor that isn't finite or isn't greater than 1.0, a
+// non-positive neighbor count, more than one positional argument),
+// returns `ok == false` with a human-readable `error` and an unspecified
+// `config`.
 //
 // --help/-h anywhere in `args` short-circuits all of the above: returns
 // immediately with `help_requested == true` and `ok == true`, without
@@ -223,6 +235,45 @@ inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
         return result;
       }
       (arg == "--width" ? result.config.camera_width_px : result.config.camera_height_px) = *px;
+    } else if (arg == "--min-neighbors") {
+      const auto value = next_value(i, arg);
+      if (!value) {
+        return result;
+      }
+      const auto neighbors = parse_positive_int(arg, *value);
+      if (!neighbors) {
+        return result;
+      }
+      result.config.min_neighbors = *neighbors;
+    } else if (arg == "--scale-factor") {
+      const auto value = next_value(i, arg);
+      if (!value) {
+        return result;
+      }
+      try {
+        size_t consumed = 0;
+        const double factor = std::stod(*value, &consumed);
+        if (consumed != value->size()) {
+          throw std::invalid_argument("trailing characters");
+        }
+        // detectMultiScale shrinks the search image by this factor
+        // between each pyramid level it scans for a face at a
+        // different size -- exactly 1.0 (never mind anything below
+        // it) would shrink the image by nothing on every level, so
+        // the scan never progresses to a smaller size at all. This
+        // isn't the same "reaches technically-undefined-behavior"
+        // overflow the timing flags guard against above -- it's a
+        // plain infinite/no-op scan, but just as nonsensical a value
+        // to accept silently.
+        if (!std::isfinite(factor) || factor <= 1.0) {
+          throw std::invalid_argument("must be greater than 1.0");
+        }
+        result.config.scale_factor = factor;
+      } catch (const std::exception&) {
+        result.ok = false;
+        result.error = arg + " expects a finite number greater than 1.0, got '" + *value + "'";
+        return result;
+      }
     } else if (arg.rfind("--", 0) == 0) {
       result.ok = false;
       result.error = "unknown flag: " + arg;
