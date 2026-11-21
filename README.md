@@ -17,7 +17,10 @@ C++ / OpenCV を用いて、カメラ映像から人の顔を検出し、パソ�
   アラートは端末ベル音＋ログ出力に加え、`notify-send` が利用可能な環境（Linuxデスクトップ、
   `libnotify-bin` など）ではデスクトップ通知も送る（`src/notifier.h`）。`notify-send` が
   無い環境（macOS、Windows、ヘッドレス環境など）ではログ＋ベル音のみに自動的にフォール
-  バックする。
+  バックする。`notify-send` の呼び出しはバックグラウンドで実行され、呼び出し元
+  (カメラ撮影ループと同じスレッド)をブロックしない -- D-Bus や通知デーモンが
+  一時的に応答しなくなった場合でも、フレーム取得やプレビューウィンドウの描画、
+  `q`/ESC/Ctrl-C への応答がそれに引きずられて止まることはない。
 - `FocusTracker`/`AlertScheduler` はカメラ・OpenCV に依存しないロジックのみなので、
   単体テストを用意している(`tests/`、詳細は下記「テスト」節)。
 - push / pull request のたびに GitHub Actions でビルド＋テストを自動実行する
@@ -241,7 +244,10 @@ ended_at,duration_seconds,focus_percent
 は先頭の数値部分だけを読み取って残りを無視してしまうため)も壊れた行として
 スキップされることを含む)、
 `EscapeForShell`
-(`notify-send` コマンド文字列へ埋め込む前のシェルエスケープ)、`ShutdownFlag`
+(`notify-send` コマンド文字列へ埋め込む前のシェルエスケープ)、`BuildNotifySendCommand`
+(組み立てたコマンド文字列がバックグラウンド実行(末尾の `&`)と出力のリダイレクトを
+含むこと、および実際に `notify-send` の代わりとなるコマンドに差し替えて実行し、
+それが長時間応答しなくても呼び出しがすぐに返ってくること)、`ShutdownFlag`
 (`SIGINT`/`SIGTERM` ハンドラが実際にフラグを立てること)、`ResolveCascadePath`
 (カスケードファイルの探索順)、`ConsecutiveFailureGuard`(連続失敗回数のしきい値
 判定)、`display_format`(画面オーバーレイの2行 -- `FormatStatusLine`/

@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -84,6 +85,40 @@ void MaliciousInputCannotEscapeTheQuotedArgument() {
   CHECK(!std::filesystem::exists(marker));
 }
 
+// BuildNotifySendCommand's own shape -- confirms the trailing `&`
+// (and the output redirection that goes with backgrounding a shell
+// command) is actually present in the built string, not just intended
+// by the comment above it.
+void BuiltCommandEndsInBackgroundOperatorWithOutputRedirected() {
+  const std::string command = BuildNotifySendCommand("notify-send", "title", "message");
+  CHECK(!command.empty() && command.back() == '&');
+  CHECK(command.find(">/dev/null 2>&1 &") != std::string::npos);
+}
+
+// The actual point of backgrounding: build the exact command shape
+// Notify() builds, with a stand-in that sleeps instead of running
+// notify-send, and confirm std::system() returns almost immediately --
+// not after the stand-in's own sleep finishes. bash -c's script
+// ignores whatever extra positional arguments follow it
+// (--urgency=normal, --, the quoted title/message), standing in for a
+// notify-send call that, for whatever reason (a stuck D-Bus session, an
+// unresponsive notification daemon), takes a while to actually return.
+// Without the trailing `&` this command builds, this call would block
+// for the full stand-in sleep instead -- exactly what would freeze
+// main.cpp's own camera capture loop, since Notify() runs on that same
+// thread, for as long as a real hung notify-send lasted.
+void DoesNotBlockWaitingForTheNotificationCommandToFinish() {
+  const std::string command = BuildNotifySendCommand("bash -c 'sleep 0.5'", "title", "message");
+  const auto start = std::chrono::steady_clock::now();
+  const int result = std::system(command.c_str());
+  const double elapsed =
+      std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+  static_cast<void>(result);
+  // Comfortably less than the stand-in's own 0.5s sleep -- a regression
+  // back to a blocking call would instead take >= 0.5s itself.
+  CHECK(elapsed < 0.3);
+}
+
 }  // namespace
 
 int main() {
@@ -95,5 +130,7 @@ int main() {
   RUN_TEST(LeavesOtherShellMetacharactersAlone);
   RUN_TEST(EscapedTextRoundTripsThroughARealShellDoubleQuotedArgument);
   RUN_TEST(MaliciousInputCannotEscapeTheQuotedArgument);
+  RUN_TEST(BuiltCommandEndsInBackgroundOperatorWithOutputRedirected);
+  RUN_TEST(DoesNotBlockWaitingForTheNotificationCommandToFinish);
   return test_framework::FailureCount() == 0 ? 0 : 1;
 }

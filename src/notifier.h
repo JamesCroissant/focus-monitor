@@ -30,6 +30,38 @@ inline std::string EscapeForShell(const std::string& text) {
   return escaped;
 }
 
+// Builds the shell command Notify() below runs to deliver a desktop
+// notification. Pulled out as its own function (like EscapeForShell
+// above) specifically so its exact shape -- especially the trailing
+// `&` that backgrounds it, and the output redirection that goes with
+// backgrounding a command -- can be exercised directly with a stand-in
+// command, without needing notify-send installed or actually sending a
+// visible notification.
+//
+// The trailing `&` matters for more than tidiness: std::system() runs
+// a full shell and blocks until that shell exits, and without `&` the
+// shell doesn't exit until notify-send itself does. notify-send
+// normally returns almost instantly, but it still talks to a D-Bus
+// session and a separate notification-daemon process, either of which
+// hanging (a stuck D-Bus call, an unresponsive daemon) would block
+// Notify()'s caller for exactly as long as that hang lasts -- and
+// Notify() is called from the same thread that drives the camera
+// capture loop, so a hung notify-send would silently freeze frame
+// capture, the preview window, and 'q'/ESC/Ctrl-C responsiveness along
+// with it. `&` has the shell fork notify-send and return immediately
+// without waiting for it, the same "best-effort, never block the real
+// work on this" posture this class's own comment already states for
+// notify-send being entirely optional. `>/dev/null 2>&1` goes with
+// that: without it, notify-send's own stdout/stderr (normally silent,
+// but not guaranteed to be) could still print to the terminal well
+// after Notify() has returned and this process has moved on, now from
+// a background job with no connection to anything currently printing.
+inline std::string BuildNotifySendCommand(const std::string& command_name,
+                                           const std::string& title, const std::string& message) {
+  return command_name + " --urgency=normal -- \"" + EscapeForShell(title) + "\" \"" +
+         EscapeForShell(message) + "\" >/dev/null 2>&1 &";
+}
+
 // Best-effort alert delivery: a terminal bell + log line always fire, and a
 // Linux desktop notification (via `notify-send`) is sent additionally when
 // that command is available on PATH. There is no hard dependency on any
@@ -44,8 +76,7 @@ class Notifier {
     std::cout << '\a' << "[focus-monitor] " << title << ": " << message << std::endl;
 
     if (notify_send_available_) {
-      const std::string command = "notify-send --urgency=normal -- \"" + EscapeForShell(title) +
-                                   "\" \"" + EscapeForShell(message) + "\"";
+      const std::string command = BuildNotifySendCommand("notify-send", title, message);
       const int result = std::system(command.c_str());
       static_cast<void>(result);
     }
