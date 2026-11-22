@@ -18,12 +18,30 @@ endif()
 # codebase (main.cpp, every src/*.h, every tests/*.cpp) already builds
 # clean under it -- this is a safety net for future changes, not a fix
 # for a warning that already existed.
-add_compile_options(-Wall -Wextra)
+#
+# -Werror turns that safety net into an actual gate: -Wall/-Wextra alone
+# only ever get looked at if someone happens to scroll past them in a
+# build log, same as before CI's own build step existed to run ctest
+# automatically instead of trusting a commit message's own "ran it by
+# hand" claim. A future warning should fail the same way a failing test
+# already does, not sit there unread.
+add_compile_options(-Wall -Wextra -Werror)
 
 find_package(OpenCV REQUIRED)
 
 add_executable(focus_monitor src/main.cpp)
-target_include_directories(focus_monitor PRIVATE ${OpenCV_INCLUDE_DIRS})
+# SYSTEM, not just PRIVATE: -Werror above means ANY warning now fails
+# the build, including one that originates inside a header this project
+# doesn't own -- without SYSTEM, a future OpenCV upgrade (CI installs
+# whatever libopencv-dev the runner's own package index currently has,
+# not a pinned version) emitting so much as one new deprecation warning
+# from its own public headers would break this build for a reason
+# nothing in this repo caused or can fix by itself. SYSTEM tells the
+# compiler to treat OpenCV's headers the same way it already treats the
+# C++ standard library's own -- suppressing warnings that originate
+# inside them regardless of -Wall/-Wextra/-Werror, while still fully
+# enforcing all three against this project's own code.
+target_include_directories(focus_monitor SYSTEM PRIVATE ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(focus_monitor PRIVATE ${OpenCV_LIBS})
 
 # FocusTracker/AlertScheduler are plain, dependency-free logic classes (no
