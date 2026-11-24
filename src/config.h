@@ -48,6 +48,19 @@ struct Config {
   // recompiling.
   double scale_factor = 1.1;
   int min_neighbors = 4;
+  // detectMultiScale's maxSize argument -- the one remaining parameter
+  // of the five it takes (scaleFactor, minNeighbors, minSize now above,
+  // this one) that was still left hardcoded: main.cpp never passed a
+  // maxSize at all, which OpenCV treats as "no upper bound." 0 means
+  // exactly that (unbounded), the same "don't ask" convention
+  // camera_width_px/camera_height_px already use above -- most setups
+  // never need to cap this, so there was no reason to force a real
+  // value on everyone just to get a sentinel other than 0 for "don't
+  // care." A user whose frame sometimes contains a large, non-face
+  // object detectMultiScale keeps mistaking for one at a large scale
+  // now has a way to rule that scale out, the same way min_face_size_px
+  // already lets them rule out small false positives.
+  int max_face_size_px = 0;
   // --stats: print a summary of session_log_path's history and exit,
   // instead of opening the camera at all (see session_logger.h's
   // ReadSessionLogStats).
@@ -80,14 +93,15 @@ constexpr double kMaxTimingSeconds = 1e9;
 // the original "./focus_monitor [cascade_path]" usage) alongside
 // `--camera N`, `--grace-period SECONDS`, `--alert-delay SECONDS`,
 // `--alert-interval SECONDS`, `--session-log PATH`, `--no-session-log`,
-// `--min-face-size PX`, `--width PX`, `--height PX`, `--scale-factor FACTOR`,
-// `--min-neighbors N`, and `--stats`. On any error (unknown flag, missing value, a
-// value that doesn't parse as a number, a timing value that isn't finite,
-// negative, or too large (see kMaxTimingSeconds), a non-positive face
-// size, a scale factor that isn't finite or isn't greater than 1.0, a
-// non-positive neighbor count, more than one positional argument),
-// returns `ok == false` with a human-readable `error` and an unspecified
-// `config`.
+// `--min-face-size PX`, `--max-face-size PX`, `--width PX`, `--height PX`,
+// `--scale-factor FACTOR`, `--min-neighbors N`, and `--stats`. On any error
+// (unknown flag, missing value, a value that doesn't parse as a number, a
+// timing value that isn't finite, negative, or too large (see
+// kMaxTimingSeconds), a non-positive face size, a scale factor that isn't
+// finite or isn't greater than 1.0, a non-positive neighbor count, a
+// --max-face-size smaller than --min-face-size, more than one positional
+// argument), returns `ok == false` with a human-readable `error` and an
+// unspecified `config`.
 //
 // --help/-h anywhere in `args` short-circuits all of the above: returns
 // immediately with `help_requested == true` and `ok == true`, without
@@ -235,6 +249,16 @@ inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
         return result;
       }
       (arg == "--width" ? result.config.camera_width_px : result.config.camera_height_px) = *px;
+    } else if (arg == "--max-face-size") {
+      const auto value = next_value(i, arg);
+      if (!value) {
+        return result;
+      }
+      const auto px = parse_positive_int(arg, *value);
+      if (!px) {
+        return result;
+      }
+      result.config.max_face_size_px = *px;
     } else if (arg == "--min-neighbors") {
       const auto value = next_value(i, arg);
       if (!value) {
@@ -300,6 +324,25 @@ inline ParseArgsResult ParseArgs(const std::vector<std::string>& args) {
     result.error =
         "--stats requires a non-empty session log path; it can't be combined with "
         "--no-session-log or an empty --session-log value";
+    return result;
+  }
+
+  // Checked here, once both flags have definitely been seen, rather than
+  // the moment either one is parsed -- --max-face-size can appear before
+  // --min-face-size on the command line, and a check made while parsing
+  // just one of them would depend on argument order to catch what's
+  // actually an order-independent contradiction. max_face_size_px == 0
+  // means "unbounded," not "zero," so it's only a real upper bound once
+  // it's actually set; a set bound smaller than min_face_size_px leaves
+  // detectMultiScale's own [minSize, maxSize] search range empty, which
+  // would silently detect nothing at all rather than reporting the
+  // contradiction that caused it.
+  if (result.config.max_face_size_px > 0 &&
+      result.config.max_face_size_px < result.config.min_face_size_px) {
+    result.ok = false;
+    result.error = "--max-face-size (" + std::to_string(result.config.max_face_size_px) +
+                   ") must not be smaller than --min-face-size (" +
+                   std::to_string(result.config.min_face_size_px) + ")";
     return result;
   }
 

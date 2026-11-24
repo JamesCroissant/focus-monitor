@@ -54,7 +54,7 @@ void PrintUsage(const char* program_name, std::ostream& out) {
       << " [cascade_path] [--camera N] [--grace-period SECONDS]"
          " [--alert-delay SECONDS] [--alert-interval SECONDS]"
          " [--session-log PATH] [--no-session-log]"
-         " [--min-face-size PX] [--width PX] [--height PX]"
+         " [--min-face-size PX] [--max-face-size PX] [--width PX] [--height PX]"
          " [--scale-factor FACTOR] [--min-neighbors N] [--stats]"
          " [--help]"
       << std::endl;
@@ -174,8 +174,16 @@ int main(int argc, char** argv) {
     cv::equalizeHist(gray, gray);
 
     faces.clear();
-    face_cascade.detectMultiScale(gray, faces, config.scale_factor, config.min_neighbors, 0,
-                                   cv::Size(config.min_face_size_px, config.min_face_size_px));
+    // max_face_size_px == 0 means "unbounded" (see config.h's own
+    // comment) -- detectMultiScale's maxSize argument means the same
+    // thing when passed a default-constructed, zero-area cv::Size(),
+    // so 0 maps straight onto that rather than needing its own
+    // sentinel-handling here.
+    face_cascade.detectMultiScale(
+        gray, faces, config.scale_factor, config.min_neighbors, 0,
+        cv::Size(config.min_face_size_px, config.min_face_size_px),
+        config.max_face_size_px > 0 ? cv::Size(config.max_face_size_px, config.max_face_size_px)
+                                     : cv::Size());
 
     for (const auto& face : faces) {
       cv::rectangle(frame, face, cv::Scalar(0, 255, 0), 2);

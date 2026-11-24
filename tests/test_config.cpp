@@ -94,6 +94,46 @@ void ScaleFactorWithTrailingGarbageIsRejected() {
   CHECK(!ParseArgs({"--scale-factor", "1.2abc"}).ok);
 }
 
+// max_face_size_px's own default (0) means "unbounded" -- the same
+// convention camera_width_px/camera_height_px already use above, not a
+// literal zero-pixel cap.
+void MaxFaceSizeDefaultsToUnbounded() {
+  const auto result = ParseArgs({});
+  CHECK(result.ok);
+  CHECK(result.config.max_face_size_px == 0);
+}
+
+void MaxFaceSizeFlagOverridesTheDefault() {
+  const auto result = ParseArgs({"--max-face-size", "400"});
+  CHECK(result.ok);
+  CHECK(result.config.max_face_size_px == 400);
+}
+
+void NonPositiveMaxFaceSizeIsRejected() {
+  CHECK(!ParseArgs({"--max-face-size", "0"}).ok);
+  CHECK(!ParseArgs({"--max-face-size", "-10"}).ok);
+}
+
+// detectMultiScale's [minSize, maxSize] search range would otherwise be
+// empty -- silently detecting nothing, rather than reporting the actual
+// contradiction. Checked regardless of which flag appears first on the
+// command line, since the contradiction itself doesn't depend on that.
+void MaxFaceSizeSmallerThanMinFaceSizeIsRejected() {
+  const auto smaller_first = ParseArgs({"--max-face-size", "50", "--min-face-size", "60"});
+  CHECK(!smaller_first.ok);
+  CHECK(smaller_first.error.find("--max-face-size") != std::string::npos);
+
+  const auto larger_first = ParseArgs({"--min-face-size", "60", "--max-face-size", "50"});
+  CHECK(!larger_first.ok);
+}
+
+// The boundary itself (equal sizes -- a search range of exactly one
+// size) is a valid, if unusual, configuration, not a contradiction.
+void MaxFaceSizeEqualToMinFaceSizeIsAccepted() {
+  const auto result = ParseArgs({"--min-face-size", "60", "--max-face-size", "60"});
+  CHECK(result.ok);
+}
+
 void SessionLogFlagOverridesTheDefaultPath() {
   const auto result = ParseArgs({"--session-log", "/tmp/my_sessions.csv"});
   CHECK(result.ok);
@@ -311,6 +351,11 @@ int main() {
   RUN_TEST(NonFiniteScaleFactorIsRejected);
   RUN_TEST(NonPositiveMinNeighborsIsRejected);
   RUN_TEST(ScaleFactorWithTrailingGarbageIsRejected);
+  RUN_TEST(MaxFaceSizeDefaultsToUnbounded);
+  RUN_TEST(MaxFaceSizeFlagOverridesTheDefault);
+  RUN_TEST(NonPositiveMaxFaceSizeIsRejected);
+  RUN_TEST(MaxFaceSizeSmallerThanMinFaceSizeIsRejected);
+  RUN_TEST(MaxFaceSizeEqualToMinFaceSizeIsAccepted);
   RUN_TEST(SessionLogFlagOverridesTheDefaultPath);
   RUN_TEST(NoSessionLogFlagClearsThePath);
   RUN_TEST(StatsFlagDefaultsToFalse);

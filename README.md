@@ -58,6 +58,14 @@ C++ / OpenCV を用いて、カメラ映像から人の顔を検出し、パソ�
   変更できる。これまで main.cpp 内に固定値として埋め込まれていたが、
   `--min-face-size` と同じ理由(カメラ・照明条件によって最適値が変わる)で
   再コンパイルなしに調整する手段が無いのは同じ片手落ちだった。
+- `detectMultiScale` の `maxSize`(`--max-face-size`)もコマンドラインから
+  指定できる(既定は無制限)。`minSize`(`--min-face-size`)側はずっと
+  調整できたのに、上限側だけ main.cpp が一切指定しておらず常に無制限のまま
+  だった -- フレームに映り込む大きな非顔オブジェクトを顔と誤検出し続ける
+  ような環境でも、これまでは除外する手段が無かった。`--max-face-size` を
+  `--min-face-size` より小さい値に設定すると `detectMultiScale` の検索範囲
+  (`[minSize, maxSize]`)が空になり何も検出されなくなるため、その矛盾は
+  起動時のエラーとして拒否する。
 - カメラから一時的に空フレームを受け取っても即座には終了せず、最大30回連続
   (`src/consecutive_failure_guard.h`、既定の再試行間隔10msで約300ms相当)まで
   再試行してから本当にカメラが切断されたと判断する。健全なカメラでも起こり得る
@@ -161,7 +169,7 @@ systemctl --user enable --now focus-monitor.service
     [--alert-delay SECONDS] \
     [--alert-interval SECONDS] \
     [--session-log PATH] [--no-session-log] \
-    [--min-face-size PX] [--width PX] [--height PX] \
+    [--min-face-size PX] [--max-face-size PX] [--width PX] [--height PX] \
     [--scale-factor FACTOR] [--min-neighbors N] [--stats] [--help]
 ```
 
@@ -190,6 +198,9 @@ systemctl --user enable --now focus-monitor.service
 - `--no-session-log`: セッションログの記録を無効化する。
 - `--min-face-size PX`: 顔検出の最小サイズ(ピクセル、正方形の一辺、既定 60)。
   0 以下の値はエラーになる。
+- `--max-face-size PX`: 顔検出の最大サイズ(ピクセル、正方形の一辺、既定は
+  無制限)。0 以下の値はエラーになる。`--min-face-size` より小さい値を
+  指定した場合もエラーになる(検索範囲が空になり、何も検出されなくなるため)。
 - `--scale-factor FACTOR`: `detectMultiScale` が探索ウィンドウを縮小していく
   倍率(既定 1.1)。値を大きくするほど探索するスケールの段階数が減り検出は
   速くなるが、サイズが段階の間に収まる顔を見落としやすくなる。1.0 以下の値は
