@@ -25,7 +25,18 @@ endif()
 # automatically instead of trusting a commit message's own "ran it by
 # hand" claim. A future warning should fail the same way a failing test
 # already does, not sit there unread.
-add_compile_options(-Wall -Wextra -Werror)
+#
+# -Wshadow and -Wpedantic were probed (on top of -Wall/-Wextra) when
+# -Werror was added, confirmed clean, and deliberately left out of the
+# actual flags at the time -- this adds them for real now that nothing
+# stands in the way: -Wshadow catches a local/parameter silently
+# shadowing an outer-scope or member variable (a real, recurring class
+# of bug elsewhere, not a style nit -- the kind of mistake where the
+# code reads as if it's updating one variable while actually creating
+# and discarding a second one of the same name), and -Wpedantic flags
+# non-standard compiler extensions that would silently stop building
+# under a different compiler.
+add_compile_options(-Wall -Wextra -Wshadow -Wpedantic -Werror)
 
 find_package(OpenCV REQUIRED)
 
