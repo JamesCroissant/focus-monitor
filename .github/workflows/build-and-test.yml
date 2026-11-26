@@ -94,3 +94,29 @@ Average focus rate: 80.0%"
             exit 1
           fi
           echo "--stats with a real log file printed the expected summary"
+
+      # main.cpp has five distinct exit-1 paths: argument-parse failure,
+      # --stats against a missing log (covered above), no display
+      # available (covered above), cascade load failure, and camera
+      # open failure. ParseArgs's own rejection logic is already
+      # exhaustively unit-tested in tests/test_config.cpp, but main.cpp's
+      # own wiring of it -- the "Error: " prefix, the usage text printed
+      # alongside it, and the exit code itself -- had never been
+      # exercised through the actual compiled binary, same gap as the
+      # --stats path above before Nov 18's fix. --unknown-flag is always
+      # invalid, display/camera availability aside, so this doesn't
+      # depend on anything else this runner does or doesn't have.
+      - name: Smoke-test the real binary's argument-error path
+        working-directory: build
+        run: |
+          set +e
+          output="$(./focus_monitor --unknown-flag 2>&1)"
+          status=$?
+          set -e
+          if [ "$status" -ne 1 ] || ! grep -q "Error: unknown flag: --unknown-flag" <<< "$output" || \
+             ! grep -q "^Usage:" <<< "$output"; then
+            echo "Expected exit code 1 with an 'Error: unknown flag' message and usage text, got status $status and:" >&2
+            echo "$output" >&2
+            exit 1
+          fi
+          echo "an invalid flag exited 1 with the expected error and usage text"
