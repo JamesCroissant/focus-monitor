@@ -9,6 +9,18 @@
 // An alert fires once `delay` after the not-focused state began, and then
 // repeats every `repeat_interval` for as long as the state stays
 // not-focused. Becoming focused again resets the scheduler.
+//
+// `repeat_interval` of exactly zero is accepted (config.h's own range
+// check allows it, the same as `delay`), but it doesn't mean "repeat
+// very frequently" the way a small-but-nonzero value would -- the
+// `now - last_alert_at_ >= repeat_interval_` check below is trivially
+// true for any `now` once `repeat_interval_` is 0, so ShouldAlert()
+// returns true on literally every call once `delay` has elapsed, not
+// on some bounded cadence. Since main.cpp calls this once per
+// processed camera frame, that means firing on every frame (commonly
+// ~30/s) for as long as the state stays not-focused, not a "fast
+// repeat" -- worth knowing before setting `--alert-interval 0`
+// expecting rate-limited nagging rather than continuous alerting.
 class AlertScheduler {
  public:
   using Clock = std::chrono::steady_clock;

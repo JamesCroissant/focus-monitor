@@ -186,7 +186,12 @@ systemctl --user enable --now focus-monitor.service
 - `--alert-delay SECONDS`: Not focused になってから最初のアラートまでの時間
   (既定 10 秒)。
 - `--alert-interval SECONDS`: 最初のアラート以降、Not focused が続く間の
-  繰り返し間隔(既定 30 秒)。
+  繰り返し間隔(既定 30 秒)。`0` を指定した場合、一定間隔での繰り返しには
+  ならない点に注意: 間隔チェックが常に真になるため、Not focused かつ
+  `--alert-delay` 経過後は処理する全フレームでアラートが発火する
+  (`src/alert_scheduler.h` 自身のコメント参照)。カメラのフレームレート
+  (一般的に 30fps 程度)分だけ毎秒 `notify-send` が呼ばれ続けることになる
+  ため、「素早く繰り返す」目的で指定する値としては意図しない挙動になりうる。
 
   (`--grace-period`/`--alert-delay`/`--alert-interval` はいずれも 0 以上
   10^9 秒(約 31.7 年)以下の有限な数値のみ受け付ける。負の値や `nan`/`inf`
@@ -250,7 +255,8 @@ ended_at,duration_seconds,focus_percent
 ## テスト
 
 `FocusTracker`(グレースピリオド・集中率の計算)、`AlertScheduler`(アラートの
-発火タイミング)、`Config`(コマンドライン引数のパース)、`session_logger`
+発火タイミング。`--alert-interval 0` が一定間隔での繰り返しではなく、
+delay 経過後の全呼び出しで発火することの確認を含む)、`Config`(コマンドライン引数のパース)、`session_logger`
 (セッションサマリの CSV フォーマットとファイル追記、および `--stats` が使う
 `ReadSessionLogStats` による集計・長さによる重み付け平均・壊れた行のスキップ。
 数値として全く読めない行だけでなく、数値の後に余分な文字列が続く行(`std::stod`

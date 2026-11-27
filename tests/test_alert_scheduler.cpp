@@ -57,6 +57,22 @@ void BecomingFocusedResetsTheDelay() {
   CHECK(scheduler.ShouldAlert(/*focused=*/false, new_unfocused_since, T(30)));
 }
 
+// repeat_interval of exactly 0 is a documented, accepted boundary value
+// (config.h's own validation permits it, same as delay), but its actual
+// effect isn't "fast repeating" -- `now - last_alert_at_ >= 0` is
+// trivially true on any subsequent call, so this fires on literally
+// every single call once delay has elapsed, not some bounded cadence.
+// Pinning this down directly: three calls one millisecond apart (far
+// closer together than any real camera's frame interval) must all
+// alert, not just the first.
+void FiresOnEveryCallOnceDelayElapsesWhenRepeatIntervalIsZero() {
+  AlertScheduler scheduler(std::chrono::seconds(10), std::chrono::seconds(0));
+  const auto unfocused_since = T(0);
+  CHECK(scheduler.ShouldAlert(/*focused=*/false, unfocused_since, T(10)));
+  CHECK(scheduler.ShouldAlert(/*focused=*/false, unfocused_since, T(10.001)));
+  CHECK(scheduler.ShouldAlert(/*focused=*/false, unfocused_since, T(10.002)));
+}
+
 }  // namespace
 
 int main() {
@@ -65,5 +81,6 @@ int main() {
   RUN_TEST(AlertsOnceDelayElapses);
   RUN_TEST(RepeatsAtRepeatIntervalWhileStillUnfocused);
   RUN_TEST(BecomingFocusedResetsTheDelay);
+  RUN_TEST(FiresOnEveryCallOnceDelayElapsesWhenRepeatIntervalIsZero);
   return test_framework::FailureCount() == 0 ? 0 : 1;
 }
