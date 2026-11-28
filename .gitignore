@@ -8,3 +8,13 @@ CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
+
+# Default --session-log output, written to the current directory on
+# every run unless --session-log/--no-session-log says otherwise.
+# README's own 実行方法 section says to run from the project root, so
+# this is exactly where every default-configured run leaves it --
+# confirmed directly by running the real session-logging path from
+# this directory and watching `git status` immediately offer to track
+# it. Ignored so a session actually run here (for a quick manual
+# check, say) doesn't show up as something to `git add`.
+focus_sessions.csv
